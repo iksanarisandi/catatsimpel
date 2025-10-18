@@ -1,0 +1,1488 @@
+/**
+ * Konfigurasi aplikasi catatan keuangan
+ * SPREADSHEET_ID diambil dari Properties untuk memudahkan deployment multi-environment
+ * 
+ * SETUP PERTAMA KALI:
+ * 1. Buka Google Apps Script Editor
+ * 2. Klik ⚙️ Project Settings (di sidebar kiri)
+ * 3. Scroll ke "Script Properties"
+ * 4. Klik "Add script property"
+ * 5. Property: SPREADSHEET_ID
+ * 6. Value: [ID Google Sheet Anda]
+ * 7. Klik "Save script properties"
+ */
+
+/**
+ * Mendapatkan Spreadsheet ID dari Properties dengan fallback ke hardcode
+ * @returns {string} Spreadsheet ID
+ */
+function getSpreadsheetId() {
+  try {
+    // Ambil dari Script Properties terlebih dahulu
+    const properties = PropertiesService.getScriptProperties();
+    const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+    
+    if (spreadsheetId) {
+      return spreadsheetId;
+    }
+    
+    // Fallback ke hardcode untuk backward compatibility (akan dihapus nanti)
+    const fallbackId = "1or4pGtEmZj-UJZ91BDXh99Yj7VQ0tc7PN3NZuH4dGL0";
+    console.warn('⚠️ PERINGATAN: Menggunakan Spreadsheet ID hardcode. Silakan setup Properties untuk deployment yang lebih baik.');
+    return fallbackId;
+    
+  } catch (error) {
+    throw new Error('Gagal mendapatkan Spreadsheet ID. Pastikan Properties SPREADSHEET_ID sudah diset: ' + error.message);
+  }
+}
+
+// Konstanta nama sheet
+const SHEET_NAMES = {
+  TRANSACTIONS: "Transaksi",
+  CATEGORIES: "Kategori",
+  WALLETS: "Dompet"
+};
+
+// Konstanta jenis transaksi
+const TRANSACTION_TYPES = {
+  INCOME: "Masuk",
+  EXPENSE: "Keluar",
+  TRANSFER: "Transfer"
+};
+
+// =====================================================================================
+// PROPERTIES MANAGEMENT FUNCTIONS - Untuk memudahkan deployment multi-environment
+// =====================================================================================
+
+/**
+ * Setup Spreadsheet ID via Properties (untuk deployment baru)
+ * @param {string} spreadsheetId - ID Google Sheet yang akan digunakan
+ * @returns {Object} Status setup
+ */
+function setupSpreadsheetId(spreadsheetId) {
+  try {
+    if (!spreadsheetId || spreadsheetId.trim() === '') {
+      return { 
+        status: 'error', 
+        message: 'Spreadsheet ID tidak boleh kosong' 
+      };
+    }
+    
+    // Validasi format ID (Google Sheet ID panjangnya sekitar 44 karakter)
+    if (spreadsheetId.length < 30) {
+      return { 
+        status: 'error', 
+        message: 'Format Spreadsheet ID tidak valid' 
+      };
+    }
+    
+    // Test akses spreadsheet
+    try {
+      const testSheet = SpreadsheetApp.openById(spreadsheetId);
+      testSheet.getName(); // Test akses
+    } catch (accessError) {
+      return { 
+        status: 'error', 
+        message: 'Tidak dapat mengakses spreadsheet. Pastikan ID benar dan Anda memiliki akses: ' + accessError.message 
+      };
+    }
+    
+    // Simpan ke Properties
+    const properties = PropertiesService.getScriptProperties();
+    properties.setProperty('SPREADSHEET_ID', spreadsheetId);
+    
+    return {
+      status: 'success',
+      message: `Spreadsheet ID berhasil disimpan: ${spreadsheetId.substring(0, 10)}...`,
+      spreadsheetId: spreadsheetId
+    };
+    
+  } catch (error) {
+    return {
+      status: 'error',
+      message: 'Gagal setup Spreadsheet ID: ' + error.message
+    };
+  }
+}
+
+/**
+ * Mendapatkan konfigurasi aplikasi saat ini
+ * @returns {Object} Informasi konfigurasi
+ */
+function getAppConfig() {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+    
+    const config = {
+      spreadsheetId: spreadsheetId || 'Belum diset (menggunakan hardcode)',
+      usingProperties: !!spreadsheetId,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Test koneksi spreadsheet
+    try {
+      const ss = getSpreadsheet();
+      config.spreadsheetName = ss.getName();
+      config.connectionStatus = 'OK';
+      config.sheetsFound = ss.getSheets().map(sheet => sheet.getName());
+    } catch (connectionError) {
+      config.connectionStatus = 'ERROR';
+      config.connectionError = connectionError.message;
+    }
+    
+    return {
+      status: 'success',
+      config: config
+    };
+    
+  } catch (error) {
+    return {
+      status: 'error',
+      message: 'Gagal mendapatkan konfigurasi: ' + error.message
+    };
+  }
+}
+
+/**
+ * Reset Properties (untuk troubleshooting)
+ * @returns {Object} Status reset
+ */
+function resetProperties() {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    properties.deleteProperty('SPREADSHEET_ID');
+    
+    return {
+      status: 'success',
+      message: 'Properties berhasil direset. Akan menggunakan hardcode fallback.'
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      message: 'Gagal reset properties: ' + error.message
+    };
+  }
+}
+
+/**
+ * Mendapatkan spreadsheet dengan error handling menggunakan Properties
+ * @returns {Spreadsheet} Objek spreadsheet
+ * @throws {Error} Jika gagal membuka spreadsheet
+ */
+function getSpreadsheet() {
+  try {
+    const spreadsheetId = getSpreadsheetId();
+    return SpreadsheetApp.openById(spreadsheetId);
+  } catch (error) {
+    console.error('Error opening spreadsheet:', error);
+    throw new Error('Gagal membuka spreadsheet: ' + error.message);
+  }
+}
+
+/**
+ * Mendapatkan sheet berdasarkan nama dengan error handling
+ * @param {string} sheetName - Nama sheet yang akan diambil
+ * @returns {Sheet} Objek sheet
+ * @throws {Error} Jika sheet tidak ditemukan
+ */
+function getSheet(sheetName) {
+  try {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      throw new Error(`Sheet '${sheetName}' tidak ditemukan`);
+    }
+    return sheet;
+  } catch (error) {
+    console.error(`Error getting sheet ${sheetName}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Enhanced cache untuk sheet objects dan data dengan expiration
+ */
+let _sheetCache = {
+  transactions: null,
+  categories: null,
+  wallets: null
+};
+
+let _dataCache = {
+  initialData: { data: null, timestamp: 0, ttl: 5 * 60 * 1000 }, // 5 minutes TTL
+  categoriesData: { data: null, timestamp: 0, ttl: 10 * 60 * 1000 }, // 10 minutes TTL
+  walletsData: { data: null, timestamp: 0, ttl: 10 * 60 * 1000 }, // 10 minutes TTL
+  transactionQueries: {} // Cache untuk query transaksi
+};
+
+/**
+ * Helper function untuk cache management
+ * @param {string} cacheKey - Key untuk cache
+ * @param {*} data - Data yang akan di-cache
+ */
+function setCacheData(cacheKey, data) {
+  if (_dataCache[cacheKey]) {
+    _dataCache[cacheKey].data = data;
+    _dataCache[cacheKey].timestamp = Date.now();
+  }
+}
+
+/**
+ * Helper function untuk mengambil data dari cache
+ * @param {string} cacheKey - Key untuk cache
+ * @returns {*} Data dari cache atau null jika expired
+ */
+function getCacheData(cacheKey) {
+  const cache = _dataCache[cacheKey];
+  if (!cache) return null;
+  
+  const isExpired = (Date.now() - cache.timestamp) > cache.ttl;
+  return isExpired ? null : cache.data;
+}
+
+/**
+ * Clear specific cache or all cache
+ * @param {string} cacheKey - Optional specific cache key to clear
+ */
+function clearCache(cacheKey = null) {
+  if (cacheKey && _dataCache[cacheKey]) {
+    _dataCache[cacheKey].data = null;
+    _dataCache[cacheKey].timestamp = 0;
+  } else {
+    // Clear all cache
+    Object.keys(_dataCache).forEach(key => {
+      if (key === 'transactionQueries') {
+        _dataCache.transactionQueries = {}; // Clear all transaction query cache
+      } else if (_dataCache[key] && typeof _dataCache[key] === 'object') {
+        _dataCache[key].data = null;
+        _dataCache[key].timestamp = 0;
+      }
+    });
+  }
+}
+
+/**
+ * Mendapatkan sheet Transaksi dengan lazy loading
+ * @returns {Sheet} Sheet transaksi
+ */
+function getTransactionsSheet() {
+  if (!_sheetCache.transactions) {
+    _sheetCache.transactions = getSheet(SHEET_NAMES.TRANSACTIONS);
+  }
+  return _sheetCache.transactions;
+}
+
+/**
+ * Mendapatkan sheet Kategori dengan lazy loading
+ * @returns {Sheet} Sheet kategori
+ */
+function getCategoriesSheet() {
+  if (!_sheetCache.categories) {
+    _sheetCache.categories = getSheet(SHEET_NAMES.CATEGORIES);
+  }
+  return _sheetCache.categories;
+}
+
+/**
+ * Mendapatkan sheet Dompet dengan lazy loading
+ * @returns {Sheet} Sheet dompet
+ */
+function getWalletsSheet() {
+  if (!_sheetCache.wallets) {
+    _sheetCache.wallets = getSheet(SHEET_NAMES.WALLETS);
+  }
+  return _sheetCache.wallets;
+}
+
+/**
+ * Menyajikan aplikasi web HTML atau file PWA
+ */
+function doGet(e) {
+  const path = e.parameter.path || '';
+  
+  // Serve PWA files
+  if (path === 'manifest.json') {
+    return ContentService
+      .createTextOutput(HtmlService.createHtmlOutputFromFile('manifest').getContent())
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (path === 'sw.js') {
+    return ContentService
+      .createTextOutput(HtmlService.createHtmlOutputFromFile('sw').getContent())
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  
+  // Default: serve main app
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/**
+ * Mengambil kategori berdasarkan jenis transaksi
+ * @param {string} transactionType - Jenis transaksi: 'Masuk' untuk pemasukan, 'Keluar' untuk pengeluaran
+ * @returns {Object} Object dengan status dan data kategori
+ */
+function getCategoriesByType(transactionType) {
+  try {
+    // Reduced logging for better performance
+    
+    const CATEGORIES_SHEET = getCategoriesSheet();
+    const categoriesLastRow = CATEGORIES_SHEET.getLastRow();
+    
+    if (categoriesLastRow <= 1) {
+      return {
+        status: 'error',
+        message: 'Tidak ada kategori yang ditemukan',
+        data: []
+      };
+    }
+    
+    const categoriesData = CATEGORIES_SHEET.getDataRange().getValues().slice(1);
+    let categories = [];
+    
+    if (transactionType === 'Masuk') {
+      // Ambil kategori pemasukan dari kolom A
+      categories = categoriesData.map(row => row[0]).filter(category => category && category.trim() !== '');
+    } else if (transactionType === 'Keluar') {
+      // Ambil kategori pengeluaran dari kolom B
+      categories = categoriesData.map(row => row[1]).filter(category => category && category.trim() !== '');
+    } else {
+      // Untuk Transfer atau jenis lainnya, kembalikan array kosong
+      categories = [];
+    }
+    
+    // Categories loaded successfully
+    
+    return {
+      status: 'success',
+      message: `Berhasil mengambil ${categories.length} kategori untuk ${transactionType}`,
+      data: categories
+    };
+    
+  } catch (error) {
+    console.error('Error in getCategoriesByType:', error);
+    return {
+      status: 'error',
+      message: 'Gagal mengambil kategori: ' + error.message,
+      data: []
+    };
+  }
+}
+
+/**
+ * Mengambil data awal: ringkasan, saldo dompet, kategori, dan dompet
+ */
+function getInitialData() {
+  try {
+    // Check cache first
+    const cachedData = getCacheData('initialData');
+    if (cachedData) {
+      return cachedData;
+    }
+    
+    // Batch sheet access - lebih efisien
+    let TRANSACTIONS_SHEET, WALLETS_SHEET, CATEGORIES_SHEET;
+    
+    try {
+      TRANSACTIONS_SHEET = getTransactionsSheet();
+      WALLETS_SHEET = getWalletsSheet();
+      CATEGORIES_SHEET = getCategoriesSheet();
+    } catch (sheetError) {
+      return { error: sheetError.message };
+    }
+    
+    // OPTIMIZED: Batch data retrieval - single call per sheet
+    let transactions = [];
+    let walletsList = [];
+    let incomeCategories = [];
+    let expenseCategories = [];
+    
+    // Batch check: Get all lastRow values in one go
+    const transactionsLastRow = TRANSACTIONS_SHEET.getLastRow();
+    const walletsLastRow = WALLETS_SHEET.getLastRow();
+    const categoriesLastRow = CATEGORIES_SHEET.getLastRow();
+    
+    // Early validation
+    if (walletsLastRow <= 1) {
+      return { error: 'Tidak ada dompet yang ditemukan. Silakan tambahkan dompet terlebih dahulu.' };
+    }
+    
+    if (categoriesLastRow <= 1) {
+      return { error: 'Tidak ada kategori yang ditemukan. Silakan tambahkan kategori terlebih dahulu.' };
+    }
+    
+    // OPTIMIZED: Batch data retrieval - specific ranges instead of getDataRange()
+    try {
+      // Get transactions data with specific range (more efficient)
+      if (transactionsLastRow > 1) {
+        transactions = TRANSACTIONS_SHEET.getRange(2, 1, transactionsLastRow - 1, 8).getValues();
+      }
+      
+      // Get wallets data with specific range
+      const walletsData = WALLETS_SHEET.getRange(2, 1, walletsLastRow - 1, 1).getValues();
+      walletsList = walletsData.map(row => row[0]).filter(wallet => wallet);
+      
+      // Get categories data with specific range
+      const categoriesData = CATEGORIES_SHEET.getRange(2, 1, categoriesLastRow - 1, 2).getValues();
+      incomeCategories = categoriesData.map(row => row[0]).filter(category => category && category.trim() !== '');
+      expenseCategories = categoriesData.map(row => row[1]).filter(category => category && category.trim() !== '');
+      
+    } catch (dataError) {
+      return { error: 'Gagal mengambil data: ' + dataError.message };
+    }
+    
+    let totalIncome = 0;
+    let totalExpense = 0;
+    const walletBalances = {};
+    
+    // Inisialisasi saldo dompet
+    walletsList.forEach(wallet => { walletBalances[wallet] = 0; });
+
+    // Proses transaksi dengan validasi data
+    transactions.forEach((row, index) => {
+      try {
+        const type = row[1]; // Jenis
+        const fromWallet = row[4]; // Dompet_dari
+        const toWallet = row[5]; // Dompet_ke
+        const amount = parseFloat(row[6]) || 0; // Nominal
+        
+        // Skip jika data tidak valid
+        if (!type || isNaN(amount) || amount <= 0) {
+          return; // Skip invalid data without logging to improve performance
+        }
+
+        // Proses transaksi berdasarkan jenis
+        switch (type) {
+          case TRANSACTION_TYPES.INCOME:
+            totalIncome += amount;
+            if (toWallet && walletBalances.hasOwnProperty(toWallet)) {
+              walletBalances[toWallet] += amount;
+            }
+            break;
+          case TRANSACTION_TYPES.EXPENSE:
+            totalExpense += amount;
+            if (fromWallet && walletBalances.hasOwnProperty(fromWallet)) {
+              walletBalances[fromWallet] -= amount;
+            }
+            break;
+          case TRANSACTION_TYPES.TRANSFER:
+            if (fromWallet && walletBalances.hasOwnProperty(fromWallet)) {
+              walletBalances[fromWallet] -= amount;
+            }
+            if (toWallet && walletBalances.hasOwnProperty(toWallet)) {
+              walletBalances[toWallet] += amount;
+            }
+            break;
+          default:
+            // Skip unknown transaction types without logging
+        }
+      } catch (rowError) {
+        // Skip erroneous rows to prevent performance degradation
+        return;
+      }
+    });
+
+    // OPTIMIZED: Create result object
+    const result = {
+      summary: {
+        income: totalIncome,
+        expense: totalExpense,
+        balance: totalIncome - totalExpense
+      },
+      walletBalances: walletBalances,
+      categories: [...incomeCategories, ...expenseCategories], // Untuk kompatibilitas mundur
+      incomeCategories: incomeCategories,
+      expenseCategories: expenseCategories,
+      wallets: walletsList
+    };
+    
+    // Cache the result for better performance
+    setCacheData('initialData', result);
+    
+    return result;
+  } catch (error) {
+    console.error('Error in getInitialData:', error);
+    return { error: 'Gagal mengambil data awal: ' + error.message };
+  }
+}
+
+/**
+ * Fungsi untuk membersihkan dan memvalidasi data sebelum menyimpan
+ * @param {string} value - Nilai yang akan dibersihkan
+ * @returns {string} Nilai yang sudah dibersihkan
+ */
+function sanitizeData(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  
+  // Konversi ke string dan bersihkan karakter berbahaya
+  let cleanValue = String(value);
+  
+  // Hapus karakter yang bisa menyebabkan masalah di spreadsheet
+  cleanValue = cleanValue.replace(/[\n\r\t]/g, ' '); // Ganti newline, carriage return, dan tab dengan spasi
+  cleanValue = cleanValue.replace(/,{2,}/g, ','); // Ganti multiple comma dengan single comma
+  cleanValue = cleanValue.trim(); // Hapus spasi di awal dan akhir
+  
+  // Batasi panjang teks untuk mencegah overflow
+  if (cleanValue.length > 1000) {
+    cleanValue = cleanValue.substring(0, 1000) + '...';
+  }
+  
+  return cleanValue;
+}
+
+/**
+ * Fungsi untuk mendapatkan saldo terkini dari semua dompet
+ * @returns {Object} Object dengan saldo masing-masing dompet
+ */
+function getCurrentWalletBalances() {
+  try {
+    // Gunakan cache jika tersedia
+    const cachedData = getCacheData('initialData');
+    if (cachedData && cachedData.walletBalances) {
+      return cachedData.walletBalances;
+    }
+    
+    // Jika tidak ada cache, hitung ulang
+    const initialData = getInitialData();
+    return initialData.walletBalances || {};
+  } catch (error) {
+    console.error('Error getting wallet balances:', error);
+    return {};
+  }
+}
+
+/**
+ * Validasi saldo untuk transaksi pengeluaran dan transfer
+ * @param {string} fromWallet - Nama dompet sumber
+ * @param {number} amount - Jumlah yang akan ditransfer/dikeluarkan
+ * @param {string} transactionType - Jenis transaksi (untuk pesan error)
+ * @returns {Object} Hasil validasi dengan status dan pesan
+ */
+function validateWalletBalance(fromWallet, amount, transactionType = 'transaksi') {
+  try {
+    const walletBalances = getCurrentWalletBalances();
+    
+    // Cek apakah dompet ada dalam sistem
+    if (!walletBalances.hasOwnProperty(fromWallet)) {
+      return {
+        isValid: false,
+        message: `Dompet '${fromWallet}' tidak ditemukan dalam sistem`
+      };
+    }
+    
+    const currentBalance = parseFloat(walletBalances[fromWallet]) || 0;
+    const requestedAmount = parseFloat(amount) || 0;
+    
+    // Validasi saldo mencukupi
+    if (currentBalance < requestedAmount) {
+      const formattedBalance = new Intl.NumberFormat('id-ID', { 
+        style: 'currency', 
+        currency: 'IDR', 
+        minimumFractionDigits: 0 
+      }).format(currentBalance);
+      
+      const formattedAmount = new Intl.NumberFormat('id-ID', { 
+        style: 'currency', 
+        currency: 'IDR', 
+        minimumFractionDigits: 0 
+      }).format(requestedAmount);
+      
+      return {
+        isValid: false,
+        message: `Saldo tidak mencukupi! Saldo '${fromWallet}': ${formattedBalance}, ${transactionType} diminta: ${formattedAmount}`
+      };
+    }
+    
+    return {
+      isValid: true,
+      message: 'Saldo mencukupi',
+      currentBalance: currentBalance,
+      remainingBalance: currentBalance - requestedAmount
+    };
+    
+  } catch (error) {
+    return {
+      isValid: false,
+      message: 'Gagal memvalidasi saldo: ' + error.message
+    };
+  }
+}
+
+/**
+ * Fungsi untuk memvalidasi struktur transaksi sebelum menyimpan
+ * @param {Object} transactionData - Data transaksi yang akan divalidasi
+ * @returns {Object} Hasil validasi dengan status dan pesan
+ */
+function validateTransactionData(transactionData) {
+  const { date, type, category, description, fromWallet, toWallet, amount, notes } = transactionData;
+  
+  // Validasi field wajib
+  if (!date) {
+    return { isValid: false, message: 'Tanggal tidak boleh kosong' };
+  }
+  
+  if (!type || !Object.values(TRANSACTION_TYPES).includes(type)) {
+    return { isValid: false, message: 'Jenis transaksi tidak valid' };
+  }
+  
+  if (!description || description.trim() === '') {
+    return { isValid: false, message: 'Deskripsi tidak boleh kosong' };
+  }
+  
+  if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+    return { isValid: false, message: 'Nominal harus berupa angka positif' };
+  }
+  
+  // Validasi dompet berdasarkan jenis transaksi
+  if (type === TRANSACTION_TYPES.INCOME && (!toWallet || toWallet.trim() === '')) {
+    return { isValid: false, message: 'Dompet tujuan harus dipilih untuk pemasukan' };
+  }
+  
+  if (type === TRANSACTION_TYPES.EXPENSE && (!fromWallet || fromWallet.trim() === '')) {
+    return { isValid: false, message: 'Dompet sumber harus dipilih untuk pengeluaran' };
+  }
+  
+  if (type === TRANSACTION_TYPES.TRANSFER) {
+    if (!fromWallet || fromWallet.trim() === '') {
+      return { isValid: false, message: 'Dompet sumber harus dipilih untuk transfer' };
+    }
+    if (!toWallet || toWallet.trim() === '') {
+      return { isValid: false, message: 'Dompet tujuan harus dipilih untuk transfer' };
+    }
+    if (fromWallet === toWallet) {
+      return { isValid: false, message: 'Dompet sumber dan tujuan tidak boleh sama' };
+    }
+    
+    // VALIDASI SALDO: Pastikan saldo mencukupi untuk transfer
+    const balanceValidation = validateWalletBalance(fromWallet, amount, 'transfer');
+    if (!balanceValidation.isValid) {
+      return { isValid: false, message: balanceValidation.message };
+    }
+  }
+  
+  // VALIDASI SALDO: Untuk pengeluaran juga perlu cek saldo
+  if (type === TRANSACTION_TYPES.EXPENSE && fromWallet) {
+    const balanceValidation = validateWalletBalance(fromWallet, amount, 'pengeluaran');
+    if (!balanceValidation.isValid) {
+      return { isValid: false, message: balanceValidation.message };
+    }
+  }
+  
+  return { isValid: true, message: 'Data valid' };
+}
+
+/**
+ * Validasi khusus untuk update transaksi dengan mempertimbangkan transaksi lama
+ * @param {Object} newTransactionData - Data transaksi baru
+ * @param {Object} originalTransaction - Data transaksi asli
+ * @returns {Object} Hasil validasi dengan status dan pesan
+ */
+function validateTransactionDataForUpdate(newTransactionData, originalTransaction) {
+  // Lakukan validasi dasar terlebih dahulu
+  const basicValidation = validateTransactionData(newTransactionData);
+  
+  // Jika validasi dasar gagal dan bukan karena saldo, langsung return
+  if (!basicValidation.isValid && !basicValidation.message.includes('Saldo tidak mencukupi')) {
+    return basicValidation;
+  }
+  
+  const { type, fromWallet, toWallet, amount } = newTransactionData;
+  const requestedAmount = parseFloat(amount) || 0;
+  
+  // Jika transaksi baru adalah transfer atau pengeluaran, perlu validasi saldo khusus
+  if ((type === TRANSACTION_TYPES.TRANSFER || type === TRANSACTION_TYPES.EXPENSE) && fromWallet) {
+    try {
+      const walletBalances = getCurrentWalletBalances();
+      let currentBalance = parseFloat(walletBalances[fromWallet]) || 0;
+      
+      // Kembalikan saldo dari transaksi asli jika dari dompet yang sama
+      if (originalTransaction && 
+          (originalTransaction.type === TRANSACTION_TYPES.TRANSFER || originalTransaction.type === TRANSACTION_TYPES.EXPENSE) &&
+          originalTransaction.fromWallet === fromWallet) {
+        currentBalance += originalTransaction.amount;
+      }
+      
+      // Tambahkan saldo dari transaksi asli jika sebelumnya adalah income ke dompet yang sama
+      if (originalTransaction && 
+          originalTransaction.type === TRANSACTION_TYPES.INCOME &&
+          originalTransaction.toWallet === fromWallet) {
+        currentBalance -= originalTransaction.amount;
+      }
+      
+      // Cek apakah saldo mencukupi setelah adjustment
+      if (currentBalance < requestedAmount) {
+        const formattedBalance = new Intl.NumberFormat('id-ID', { 
+          style: 'currency', 
+          currency: 'IDR', 
+          minimumFractionDigits: 0 
+        }).format(currentBalance);
+        
+        const formattedAmount = new Intl.NumberFormat('id-ID', { 
+          style: 'currency', 
+          currency: 'IDR', 
+          minimumFractionDigits: 0 
+        }).format(requestedAmount);
+        
+        const transactionType = type === TRANSACTION_TYPES.TRANSFER ? 'transfer' : 'pengeluaran';
+        
+        return {
+          isValid: false,
+          message: `Saldo tidak mencukupi untuk update! Saldo tersedia '${fromWallet}': ${formattedBalance}, ${transactionType} diminta: ${formattedAmount}`
+        };
+      }
+    } catch (error) {
+      return {
+        isValid: false,
+        message: 'Gagal memvalidasi saldo untuk update: ' + error.message
+      };
+    }
+  }
+  
+  return { isValid: true, message: 'Data valid untuk update' };
+}
+
+/**
+ * Menambahkan transaksi baru ke sheet dengan validasi dan sanitasi yang lebih ketat
+ */
+function addTransaction(transactionData) {
+  try {
+    // Validasi data input
+    const validation = validateTransactionData(transactionData);
+    if (!validation.isValid) {
+      return { status: 'error', message: validation.message };
+    }
+    
+    const { date, type, category, description, fromWallet, toWallet, amount, notes } = transactionData;
+    const TRANSACTIONS_SHEET = getTransactionsSheet();
+    
+    // Tentukan dompet berdasarkan jenis transaksi
+    const { dompetDari, dompetKe, finalCategory } = determineWalletMapping(type, fromWallet, toWallet, category);
+    
+    // Buat array data untuk row baru
+    const newRow = [
+      new Date(date),
+      sanitizeData(type),
+      sanitizeData(finalCategory),
+      sanitizeData(description),
+      dompetDari,
+      dompetKe,
+      parseFloat(amount),
+      sanitizeData(notes || '')
+    ];
+    
+    // Validasi struktur data
+    if (newRow.length !== 8) {
+      return { status: 'error', message: 'Format data tidak valid - jumlah kolom tidak sesuai: ' + newRow.length };
+    }
+    
+    // OPTIMIZED: Batch write - single API call instead of 8 individual calls
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    const newRowNumber = lastRow + 1;
+    
+    // Single batch write operation (much faster)
+    TRANSACTIONS_SHEET.getRange(newRowNumber, 1, 1, 8).setValues([newRow]);
+    
+    // Clear cache to ensure fresh data on next load
+    _dataCache.initialData.data = null;
+    
+    return { status: 'success', message: 'Transaksi berhasil ditambahkan!' };
+  } catch (error) {
+    console.error('Error in addTransaction:', error);
+    return { status: 'error', message: 'Gagal menambahkan transaksi: ' + error.message };
+  }
+}
+
+/**
+ * Helper function untuk menentukan mapping dompet berdasarkan jenis transaksi
+ * @param {string} type - Jenis transaksi
+ * @param {string} fromWallet - Dompet sumber
+ * @param {string} toWallet - Dompet tujuan
+ * @param {string} category - Kategori transaksi
+ * @returns {Object} Object dengan dompetDari, dompetKe, dan finalCategory
+ */
+function determineWalletMapping(type, fromWallet, toWallet, category) {
+  let dompetDari = '';
+  let dompetKe = '';
+  let finalCategory = category || '';
+  
+  switch (type) {
+    case TRANSACTION_TYPES.INCOME:
+      dompetKe = sanitizeData(toWallet);
+      break;
+    case TRANSACTION_TYPES.EXPENSE:
+      dompetDari = sanitizeData(fromWallet);
+      break;
+    case TRANSACTION_TYPES.TRANSFER:
+      dompetDari = sanitizeData(fromWallet);
+      dompetKe = sanitizeData(toWallet);
+      finalCategory = TRANSACTION_TYPES.TRANSFER;
+      break;
+    default:
+      throw new Error('Jenis transaksi tidak valid: ' + type);
+  }
+  
+  return { dompetDari, dompetKe, finalCategory };
+}
+
+/**
+ * Mengambil transaksi berdasarkan rentang tanggal dengan ID row untuk edit/hapus
+ */
+function getTransactionsByDateRange(params) {
+  try {
+    // Handle both direct parameters and object parameters
+    let startDateStr, endDateStr;
+    
+    if (typeof params === 'object' && params !== null) {
+      // Called from frontend with object
+      startDateStr = params.startDateStr;
+      endDateStr = params.endDateStr;
+    } else {
+      // Called directly with string parameters (for backward compatibility)
+      startDateStr = arguments[0];
+      endDateStr = arguments[1];
+    }
+    
+    // PERFORMANCE: Check cache first
+    const cacheKey = `${startDateStr}_${endDateStr}`;
+    const cachedResult = _dataCache.transactionQueries[cacheKey];
+    
+    if (cachedResult && (Date.now() - cachedResult.timestamp) < 2 * 60 * 1000) { // 2 minutes cache
+      return cachedResult.data;
+    }
+    
+    // Validasi input parameter
+    if (!startDateStr || !endDateStr) {
+      return {
+        status: 'error',
+        message: 'Parameter tanggal tidak valid atau kosong: startDate=' + startDateStr + ', endDate=' + endDateStr,
+        data: []
+      };
+    }
+    
+    // Validasi keberadaan sheet
+    let TRANSACTIONS_SHEET;
+    try {
+      TRANSACTIONS_SHEET = getTransactionsSheet();
+    } catch (sheetError) {
+      result = { status: 'error', message: 'Gagal mengakses sheet: ' + sheetError.message, data: [] };
+      return result;
+    }
+    
+    // Cek apakah sheet memiliki data
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    if (lastRow <= 1) {
+      result = { status: 'success', data: [], message: 'Tidak ada data transaksi dalam sheet' };
+      return result;
+    }
+    
+    // OPTIMIZED: Use specific range instead of getDataRange() for better performance
+    let allData;
+    try {
+      allData = TRANSACTIONS_SHEET.getRange(2, 1, lastRow - 1, 8).getValues();
+    } catch (dataError) {
+      return { status: 'error', message: 'Gagal membaca data dari sheet: ' + dataError.message, data: [] };
+    }
+    
+    // Validasi format tanggal input
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      result = { status: 'error', message: 'Format tanggal tidak valid', data: [] };
+      return result;
+    }
+    
+    // Set waktu untuk end date ke akhir hari
+    endDate.setHours(23, 59, 59, 999);
+
+    // OPTIMIZED: Filter data dengan minimal processing
+    const filteredData = [];
+    const timezone = 'Asia/Jakarta';
+    
+    // Process data dalam satu loop dengan minimal overhead
+    for (let i = 0; i < allData.length; i++) {
+      const row = allData[i];
+      
+      // Skip invalid rows tanpa try-catch untuk performance
+      if (!row || !row[0] || row.length < 7) continue;
+      
+      const transactionDate = new Date(row[0]);
+      
+      // Skip invalid dates
+      if (isNaN(transactionDate.getTime())) continue;
+      
+      // YMD WIB untuk tampilan stabil
+      const txYmd = Utilities.formatDate(transactionDate, timezone, 'yyyy-MM-dd');
+      
+      // Filter by date range
+      if (transactionDate >= startDate && transactionDate <= endDate) {
+        // OPTIMIZED: Create object directly without intermediate variables
+        filteredData.push({
+          id: i + 2, // Row number di sheet
+          // Tampilkan tanggal berdasarkan kunci YMD WIB agar tidak bergeser 1 hari
+          tanggal: `${txYmd.substring(8,10)}/${txYmd.substring(5,7)}/${txYmd.substring(0,4)}`,
+          jenis: row[1] || '',
+          kategori: row[2] || '',
+          deskripsi: row[3] || '',
+          dompet_dari: row[4] || '',
+          dompet_ke: row[5] || '',
+          nominal: parseFloat(row[6]) || 0,
+          catatan: row[7] || ''
+        });
+      }
+    }
+    
+    const result = {
+      status: 'success',
+      data: filteredData,
+      message: `Berhasil mengambil ${filteredData.length} transaksi`
+    };
+    
+    // PERFORMANCE: Save to cache
+    _dataCache.transactionQueries[cacheKey] = {
+      data: result,
+      timestamp: Date.now()
+    };
+    
+    return result;
+    
+  } catch (error) {
+    console.error('Error in getTransactionsByDateRange:', error);
+    result = {
+      status: 'error',
+      message: 'Terjadi kesalahan: ' + error.message,
+      data: []
+    };
+    return result;
+  }
+}
+
+/**
+ * Mengambil semua transaksi yang terjadi hari ini
+ */
+function getTodaysTransactions() {
+  const today = new Date();
+  const startDateStr = Utilities.formatDate(today, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const endDateStr = startDateStr; // Mulai dan akhir di hari yang sama
+
+  // Use backward compatibility call
+  return getTransactionsByDateRange(startDateStr, endDateStr);
+}
+
+/**
+ * Mengambil transaksi berdasarkan filter predefined
+ * @param {string} filterType - Jenis filter: 'today', 'yesterday', 'thisWeek', 'thisMonth'
+ * @returns {Object} Hasil transaksi dengan status dan data
+ */
+function getTransactionsByFilter(filterType) {
+  try {
+    
+    const today = new Date();
+    let startDate, endDate;
+    
+    switch (filterType) {
+      case 'today':
+        startDate = new Date(today);
+        endDate = new Date(today);
+        break;
+        
+      case 'yesterday':
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 1);
+        endDate = new Date(startDate);
+        break;
+        
+      case 'thisWeek':
+        // Minggu ini (Senin sampai Minggu)
+        const firstDayOfWeek = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1);
+        startDate = new Date(today);
+        startDate.setDate(firstDayOfWeek);
+        endDate = new Date(today);
+        break;
+        
+      case 'thisMonth':
+        // Bulan ini
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today);
+        break;
+        
+      default:
+        return { status: 'error', message: 'Jenis filter tidak valid: ' + filterType, data: [] };
+    }
+    
+    // Reset waktu untuk startDate ke awal hari
+    startDate.setHours(0, 0, 0, 0);
+    // Set waktu untuk endDate ke akhir hari
+    endDate.setHours(23, 59, 59, 999);
+    
+    const startDateStr = Utilities.formatDate(startDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const endDateStr = Utilities.formatDate(endDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    
+    // Use backward compatibility call
+    return getTransactionsByDateRange(startDateStr, endDateStr);
+    
+  } catch (error) {
+    console.error('Error in getTransactionsByFilter:', error);
+    return {
+      status: 'error',
+      message: 'Gagal memfilter transaksi: ' + error.message,
+      data: []
+    };
+  }
+}
+
+/**
+ * Mengambil summary keuangan untuk periode tertentu
+ * @param {string} filterType - Jenis filter: 'today', 'yesterday', 'thisWeek', 'thisMonth'
+ * @returns {Object} Summary dengan total pemasukan dan pengeluaran
+ */
+function getSummaryByFilter(filterType) {
+  try {
+    // Reduced logging for better performance
+    
+    const transactionsResult = getTransactionsByFilter(filterType);
+    
+    if (transactionsResult.status !== 'success') {
+      return {
+        status: 'error',
+        message: transactionsResult.message,
+        data: { income: 0, expense: 0, balance: 0 }
+      };
+    }
+    
+    let totalIncome = 0;
+    let totalExpense = 0;
+    
+    transactionsResult.data.forEach(transaction => {
+      const amount = Math.abs(parseFloat(transaction.nominal) || 0);
+      
+      if (transaction.jenis === 'Pemasukan' || transaction.jenis === 'Masuk') {
+        totalIncome += amount;
+      } else if (transaction.jenis === 'Pengeluaran' || transaction.jenis === 'Keluar') {
+        totalExpense += amount;
+      }
+      // Transfer tidak dihitung dalam summary karena bukan pemasukan/pengeluaran bersih
+    });
+    
+    return {
+      status: 'success',
+      data: {
+        income: totalIncome,
+        expense: totalExpense,
+        balance: totalIncome - totalExpense
+      },
+      message: `Summary berhasil dihitung untuk ${filterType}`
+    };
+    
+  } catch (error) {
+    console.error('Error in getSummaryByFilter:', error);
+    return {
+      status: 'error',
+      message: 'Gagal menghitung summary: ' + error.message,
+      data: { income: 0, expense: 0, balance: 0 }
+    };
+  }
+}
+
+/**
+ * Mengambil detail transaksi berdasarkan ID untuk edit
+ */
+function getTransactionById(rowId) {
+  try {
+    const TRANSACTIONS_SHEET = getTransactionsSheet();
+    
+    // Validasi row ID
+    if (!rowId || rowId < 2) {
+      return { status: 'error', message: 'ID transaksi tidak valid' };
+    }
+    
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    if (rowId > lastRow) {
+      return { status: 'error', message: 'Transaksi tidak ditemukan' };
+    }
+    
+    // Ambil data dari row yang diminta
+    const row = TRANSACTIONS_SHEET.getRange(rowId, 1, 1, 8).getValues()[0];
+    
+    if (!row || !row[0]) {
+      return { status: 'error', message: 'Data transaksi tidak valid' };
+    }
+    
+    const transactionDate = new Date(row[0]);
+    
+    const transaction = {
+      id: rowId,
+      date: Utilities.formatDate(transactionDate, Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+      type: row[1] || '',
+      category: row[2] || '',
+      description: row[3] || '',
+      fromWallet: row[4] || '',
+      toWallet: row[5] || '',
+      amount: parseFloat(row[6]) || 0,
+      notes: row[7] || ''
+    };
+    
+    return { status: 'success', data: transaction };
+    
+  } catch (error) {
+    return { status: 'error', message: 'Gagal mengambil data transaksi: ' + error.message };
+  }
+}
+
+/**
+ * Memperbarui transaksi berdasarkan ID dengan validasi yang lebih ketat
+ 
+ */
+function updateTransaction(transactionData) {
+  try {
+    const { id, date, type, category, description, fromWallet, toWallet, amount, notes } = transactionData;
+    
+    // Validasi ID
+    if (!id || id < 2) {
+      return { status: 'error', message: 'ID transaksi tidak valid' };
+    }
+    
+    // FIX: Deklarasi TRANSACTIONS_SHEET di awal fungsi
+    const TRANSACTIONS_SHEET = getTransactionsSheet();
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    
+    if (id > lastRow) {
+      return { status: 'error', message: 'Transaksi tidak ditemukan' };
+    }
+    
+    // SPECIAL HANDLING: Untuk update transaksi, kita perlu mempertimbangkan transaksi lama
+    // Ambil data transaksi lama untuk kalkulasi saldo yang benar
+    let originalTransaction = null;
+    try {
+      const originalRow = TRANSACTIONS_SHEET.getRange(id, 1, 1, 8).getValues()[0];
+      originalTransaction = {
+        type: originalRow[1],
+        fromWallet: originalRow[4],
+        toWallet: originalRow[5],
+        amount: parseFloat(originalRow[6]) || 0
+      };
+    } catch (originalError) {
+      return { status: 'error', message: 'Gagal membaca transaksi asli: ' + originalError.message };
+    }
+    
+    // Validasi khusus untuk update dengan mempertimbangkan transaksi lama
+    const validation = validateTransactionDataForUpdate({
+      date, type, category, description, fromWallet, toWallet, amount, notes
+    }, originalTransaction);
+    
+    if (!validation.isValid) {
+      return { status: 'error', message: validation.message };
+    }
+    
+    // Gunakan helper function untuk mapping dompet
+    const { dompetDari, dompetKe, finalCategory } = determineWalletMapping(type, fromWallet, toWallet, category);
+    
+    // Buat array data untuk update
+    const updatedRow = [
+      new Date(date),
+      sanitizeData(type),
+      sanitizeData(finalCategory),
+      sanitizeData(description),
+      dompetDari,
+      dompetKe,
+      parseFloat(amount),
+      sanitizeData(notes || '')
+    ];
+    
+    // Validasi struktur data
+    if (updatedRow.length !== 8) {
+      return { status: 'error', message: 'Format data tidak valid - jumlah kolom tidak sesuai' };
+    }
+    
+    // OPTIMIZED: Batch update
+    TRANSACTIONS_SHEET.getRange(id, 1, 1, 8).setValues([updatedRow]);
+    
+    // Clear cache to ensure fresh data
+    clearCache('initialData');
+    
+    return { status: 'success', message: 'Transaksi berhasil diperbarui!' };
+    
+  } catch (error) {
+    return { status: 'error', message: 'Gagal memperbarui transaksi: ' + error.message };
+  }
+}
+
+/**
+ * Menghapus transaksi berdasarkan ID
+ */
+function deleteTransaction(rowId) {
+  try {
+    // Validasi ID
+    if (!rowId || rowId < 2) {
+      return { status: 'error', message: 'ID transaksi tidak valid' };
+    }
+    
+    const TRANSACTIONS_SHEET = getTransactionsSheet();
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    
+    if (rowId > lastRow) {
+      return { status: 'error', message: 'Transaksi tidak ditemukan' };
+    }
+    
+    // Hapus row dari sheet
+    TRANSACTIONS_SHEET.deleteRow(rowId);
+    
+    // Clear cache to ensure fresh data
+    clearCache('initialData');
+    
+    return { status: 'success', message: 'Transaksi berhasil dihapus!' };
+    
+  } catch (error) {
+    return { status: 'error', message: 'Gagal menghapus transaksi: ' + error.message };
+  }
+}
+
+
+/**
+ * Fungsi untuk membersihkan merged cells pada sheet transaksi
+ * dan memastikan struktur sheet dalam keadaan baik
+ */
+function cleanTransactionSheet() {
+  try {
+    console.log('=== CLEANING TRANSACTION SHEET ===');
+    
+    const TRANSACTIONS_SHEET = getTransactionsSheet();
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    const lastCol = TRANSACTIONS_SHEET.getLastColumn();
+    
+    console.log('Sheet dimensions - Last Row:', lastRow, 'Last Col:', lastCol);
+    
+    if (lastRow > 0 && lastCol > 0) {
+      // Unmerge semua cells yang mungkin ter-merge
+      const fullRange = TRANSACTIONS_SHEET.getRange(1, 1, lastRow, Math.max(lastCol, 8));
+      const mergedRanges = fullRange.getMergedRanges();
+      
+      if (mergedRanges.length > 0) {
+        console.log('Found', mergedRanges.length, 'merged ranges. Unmerging...');
+        mergedRanges.forEach(range => {
+          range.breakApart();
+          console.log('Unmerged range:', range.getA1Notation());
+        });
+      } else {
+        console.log('No merged ranges found.');
+      }
+      
+      // Pastikan ada header yang proper di row 1 jika belum ada data
+      if (lastRow === 0) {
+        const headers = ['Tanggal', 'Jenis', 'Kategori', 'Deskripsi', 'Dompet_dari', 'Dompet_ke', 'Nominal', 'Catatan'];
+        TRANSACTIONS_SHEET.getRange(1, 1, 1, 8).setValues([headers]);
+        console.log('Added headers to empty sheet');
+      }
+    }
+    
+    console.log('=== SHEET CLEANING COMPLETED ===');
+    return { 
+      status: 'success', 
+      message: 'Sheet berhasil dibersihkan dari merged cells',
+      mergedRangesFound: mergedRanges ? mergedRanges.length : 0
+    };
+    
+  } catch (error) {
+    console.error('Error cleaning sheet:', error);
+    return {
+      status: 'error',
+      message: 'Gagal membersihkan sheet: ' + error.message
+    };
+  }
+}
+
+/**
+ * Fungsi untuk memvalidasi integritas data sheet
+ */
+function validateSheetIntegrity() {
+  try {
+    console.log('=== VALIDATING SHEET INTEGRITY ===');
+    
+    const TRANSACTIONS_SHEET = getTransactionsSheet();
+    const lastRow = TRANSACTIONS_SHEET.getLastRow();
+    
+    if (lastRow <= 1) {
+      return { status: 'success', message: 'Sheet kosong atau hanya ada header', issues: [] };
+    }
+    
+    // Ambil semua data untuk validasi
+    const allData = TRANSACTIONS_SHEET.getDataRange().getValues();
+    const issues = [];
+    
+    // Validasi setiap baris
+    allData.forEach((row, index) => {
+      if (index === 0) return; // Skip header
+      
+      const rowNum = index + 1;
+      
+      // Cek apakah baris memiliki 8 kolom
+      if (row.length < 8) {
+        issues.push(`Row ${rowNum}: Missing columns (has ${row.length}, expected 8)`);
+      }
+      
+      // Cek data kritis
+      if (!row[0]) issues.push(`Row ${rowNum}: Missing date`);
+      if (!row[1]) issues.push(`Row ${rowNum}: Missing transaction type`);
+      if (!row[3]) issues.push(`Row ${rowNum}: Missing description`);
+      if (!row[6] || isNaN(parseFloat(row[6]))) issues.push(`Row ${rowNum}: Invalid amount`);
+      
+      // Cek wallet assignment berdasarkan jenis transaksi
+      const type = row[1];
+      const dompetDari = row[4];
+      const dompetKe = row[5];
+      
+      if (type === 'Masuk' && !dompetKe) {
+        issues.push(`Row ${rowNum}: Income transaction missing destination wallet`);
+      }
+      if (type === 'Keluar' && !dompetDari) {
+        issues.push(`Row ${rowNum}: Expense transaction missing source wallet`);
+      }
+      if (type === 'Transfer' && (!dompetDari || !dompetKe)) {
+        issues.push(`Row ${rowNum}: Transfer transaction missing source or destination wallet`);
+      }
+    });
+    
+    console.log('Validation completed. Issues found:', issues.length);
+    if (issues.length > 0) {
+      console.log('Issues:', issues);
+    }
+    
+    return {
+      status: issues.length === 0 ? 'success' : 'warning',
+      message: issues.length === 0 ? 'Sheet integrity validated successfully' : `Found ${issues.length} integrity issues`,
+      issues: issues,
+      totalRows: lastRow - 1
+    };
+    
+  } catch (error) {
+    console.error('Error validating sheet integrity:', error);
+    return {
+      status: 'error',
+      message: 'Gagal memvalidasi integritas sheet: ' + error.message,
+      issues: []
+    };
+  }
+}
+
+/**
+ * Fungsi test untuk memverifikasi koneksi sheet
+ */
+function testSheetConnection() {
+  try {
+    console.log('=== Testing Sheet Connection ===');
+    
+    const transactionsSheet = getTransactionsSheet();
+    const walletsSheet = getWalletsSheet();
+    const categoriesSheet = getCategoriesSheet();
+    
+    const result = {
+      status: 'success',
+      message: 'Semua sheet berhasil diakses',
+      sheets: {
+        transactions: {
+          name: transactionsSheet.getName(),
+          lastRow: transactionsSheet.getLastRow()
+        },
+        wallets: {
+          name: walletsSheet.getName(),
+          lastRow: walletsSheet.getLastRow()
+        },
+        categories: {
+          name: categoriesSheet.getName(),
+          lastRow: categoriesSheet.getLastRow()
+        }
+      }
+    };
+    
+    console.log('Sheet connection test result:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('Sheet connection test failed:', error);
+    return {
+      status: 'error',
+      message: 'Gagal mengakses sheet: ' + error.message,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Fungsi comprehensive test untuk memastikan semua perbaikan berfungsi
+ */
+function runComprehensiveTest() {
+  try {
+    console.log('=== STARTING COMPREHENSIVE TEST ===');
+    
+    const results = {
+      sheetConnection: null,
+      sheetCleaning: null,
+      sheetIntegrity: null,
+      testTransaction: null,
+      overall: 'running'
+    };
+    
+    // Test 1: Koneksi Sheet
+    console.log('Test 1: Testing sheet connection...');
+    results.sheetConnection = testSheetConnection();
+    console.log('Sheet connection result:', results.sheetConnection.status);
+    
+    // Test 2: Cleaning Sheet
+    console.log('Test 2: Cleaning transaction sheet...');
+    results.sheetCleaning = cleanTransactionSheet();
+    console.log('Sheet cleaning result:', results.sheetCleaning.status);
+    
+    // Test 3: Validasi Integritas
+    console.log('Test 3: Validating sheet integrity...');
+    results.sheetIntegrity = validateSheetIntegrity();
+    console.log('Sheet integrity result:', results.sheetIntegrity.status);
+    
+    // Test 4: Test Transaksi
+    console.log('Test 4: Testing transaction creation...');
+    const testTransactionData = {
+      date: '2025-01-07',
+      type: 'Masuk',
+      category: 'Test',
+      description: 'Test Transaction - Comprehensive Test',
+      fromWallet: '',
+      toWallet: 'Tunai',
+      amount: '10000',
+      notes: 'Test note for comprehensive test'
+    };
+    
+    results.testTransaction = addTransaction(testTransactionData);
+    console.log('Test transaction result:', results.testTransaction.status);
+    
+    // Overall Result
+    const allPassed = Object.values(results)
+      .filter(result => result !== null && result !== 'running')
+      .every(result => result.status === 'success');
+    
+    results.overall = allPassed ? 'success' : 'warning';
+    
+    console.log('=== COMPREHENSIVE TEST COMPLETED ===');
+    console.log('Overall result:', results.overall);
+    
+    return {
+      status: results.overall,
+      message: allPassed ? 'Semua test berhasil!' : 'Beberapa test mengalami masalah',
+      details: results,
+      timestamp: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('Error in comprehensive test:', error);
+    return {
+      status: 'error',
+      message: 'Gagal menjalankan comprehensive test: ' + error.message,
+      details: null,
+      timestamp: new Date().toISOString()
+    };
+  }
+}

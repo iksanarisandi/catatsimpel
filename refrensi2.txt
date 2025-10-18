@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1e293b">
+  <title>Keyword & Reply Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            poppins: ['Poppins', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900">
+  <div id="app" class="max-w-lg mx-auto bg-slate-900 text-white min-h-screen font-poppins">
+    
+    <!-- Loading Spinner Overlay -->
+    <div id="loader" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
+      <div class="flex flex-col items-center">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-lg font-medium">Loading...</p>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="hidden fixed top-4 left-4 right-4 max-w-lg mx-auto z-40 px-6 py-4 rounded-lg shadow-lg transform transition-all duration-300">
+      <p id="toast-message" class="text-center font-medium"></p>
+    </div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 bg-slate-800 p-4 shadow-md">
+      <h1 id="header-title" class="text-2xl font-bold text-center">Keywords</h1>
+    </header>
+
+    <!-- Main Content -->
+    <main class="p-4 space-y-6 pb-24">
+      
+      <!-- Keywords Page -->
+      <section id="keywords-page">
+        <!-- Add Keyword Form -->
+        <form id="add-keyword-form" class="flex gap-2 mb-6">
+          <input 
+            type="text" 
+            id="new-keyword-input" 
+            placeholder="Enter new keyword..." 
+            class="flex-grow bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            required
+          >
+          <button 
+            type="submit" 
+            class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg"
+          >
+            Add
+          </button>
+        </form>
+
+        <!-- Keyword List -->
+        <div id="keyword-list" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+      </section>
+
+      <!-- Templates Page -->
+      <section id="templates-page" class="hidden">
+        <form id="templates-form" class="space-y-4">
+          <!-- Template 1 -->
+          <div>
+            <label for="template-1" class="block text-sm font-semibold mb-2 text-slate-300">Template 1</label>
+            <textarea 
+              id="template-1" 
+              name="template-1" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 2 -->
+          <div>
+            <label for="template-2" class="block text-sm font-semibold mb-2 text-slate-300">Template 2</label>
+            <textarea 
+              id="template-2" 
+              name="template-2" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 3 -->
+          <div>
+            <label for="template-3" class="block text-sm font-semibold mb-2 text-slate-300">Template 3</label>
+            <textarea 
+              id="template-3" 
+              name="template-3" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 4 -->
+          <div>
+            <label for="template-4" class="block text-sm font-semibold mb-2 text-slate-300">Template 4</label>
+            <textarea 
+              id="template-4" 
+              name="template-4" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 5 -->
+          <div>
+            <label for="template-5" class="block text-sm font-semibold mb-2 text-slate-300">Template 5</label>
+            <textarea 
+              id="template-5" 
+              name="template-5" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 6 -->
+          <div>
+            <label for="template-6" class="block text-sm font-semibold mb-2 text-slate-300">Template 6</label>
+            <textarea 
+              id="template-6" 
+              name="template-6" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 7 -->
+          <div>
+            <label for="template-7" class="block text-sm font-semibold mb-2 text-slate-300">Template 7</label>
+            <textarea 
+              id="template-7" 
+              name="template-7" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 8 -->
+          <div>
+            <label for="template-8" class="block text-sm font-semibold mb-2 text-slate-300">Template 8</label>
+            <textarea 
+              id="template-8" 
+              name="template-8" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 9 -->
+          <div>
+            <label for="template-9" class="block text-sm font-semibold mb-2 text-slate-300">Template 9</label>
+            <textarea 
+              id="template-9" 
+              name="template-9" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Template 10 -->
+          <div>
+            <label for="template-10" class="block text-sm font-semibold mb-2 text-slate-300">Template 10</label>
+            <textarea 
+              id="template-10" 
+              name="template-10" 
+              rows="3" 
+              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Save Button -->
+          <button 
+            type="submit" 
+            class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 px-6 py-4 rounded-lg font-bold text-lg transition-all duration-300 shadow-lg mt-6"
+          >
+            Save All Templates
+          </button>
+        </form>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-slate-800 shadow-lg">
+      <div class="grid grid-cols-2">
+        <button 
+          id="nav-keywords" 
+          class="nav-btn py-4 font-semibold transition-all duration-300 border-t-4 border-blue-500 bg-slate-700"
+        >
+          Keywords
+        </button>
+        <button 
+          id="nav-templates" 
+          class="nav-btn py-4 font-semibold transition-all duration-300 border-t-4 border-transparent hover:bg-slate-700"
+        >
+          Templates
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <script>
+    // Global State
+    let state = {
+      keywords: [],
+      templates: []
+    };
+
+    // Color palette for keyword tiles
+    const tileColors = ['bg-emerald-500', 'bg-sky-500', 'bg-amber-500', 'bg-fuchsia-500', 'bg-rose-500', 'bg-violet-500'];
+
+    // UI Utility Functions
+    const utils = {
+      showLoader() {
+        document.getElementById('loader').classList.remove('hidden');
+      },
+      
+      hideLoader() {
+        document.getElementById('loader').classList.add('hidden');
+      },
+      
+      showMessage(message, isError = false) {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        
+        toast.className = `fixed top-4 left-4 right-4 max-w-lg mx-auto z-40 px-6 py-4 rounded-lg shadow-lg transform transition-all duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+        toastMessage.textContent = message;
+        toast.classList.remove('hidden');
+        
+        setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 3000);
+      }
+    };
+
+    // Backend Communication Helper
+    function serverCall(functionName, args, callback) {
+      utils.showLoader();
+      
+      // Simulating server call with dummy data since we're not actually connected to Google Apps Script
+      setTimeout(() => {
+        utils.hideLoader();
+        
+        if (functionName === 'getInitialData') {
+          const dummyData = {
+            keywords: ["urgent", "payment", "help", "issue", "subscribe", "question", "refund", "support"],
+            templates: [
+              "Thank you for contacting us. We'll get back to you within 24 hours.",
+              "We appreciate your patience. Your request is being processed.",
+              "For urgent matters, please call our hotline at 1-800-HELP.",
+              "Your payment has been received and confirmed.",
+              "We've updated your subscription. Changes will take effect immediately.",
+              "Our team is investigating this issue. We'll update you shortly.",
+              "Please provide more details so we can assist you better.",
+              "Thank you for your feedback. We value your input.",
+              "Your refund has been initiated and will be processed in 3-5 business days.",
+              "Is there anything else we can help you with today?"
+            ]
+          };
+          callback(dummyData);
+          utils.showMessage('Data loaded successfully');
+        } else if (functionName === 'addKeyword') {
+          callback({ success: true });
+          utils.showMessage('Keyword added successfully');
+        } else if (functionName === 'deleteKeyword') {
+          callback({ success: true });
+          utils.showMessage('Keyword deleted successfully');
+        } else if (functionName === 'saveTemplates') {
+          callback({ success: true });
+          utils.showMessage('Templates saved successfully');
+        }
+      }, 500);
+      
+      // Uncomment below for actual Google Apps Script integration
+      /*
+      google.script.run
+        .withSuccessHandler((result) => {
+          utils.hideLoader();
+          callback(result);
+          utils.showMessage('Operation completed successfully');
+        })
+        .withFailureHandler((error) => {
+          utils.hideLoader();
+          utils.showMessage('Error: ' + error.message, true);
+        })[functionName](args);
+      */
+    }
+
+    // Navigation Function
+    function navigateTo(pageId) {
+      // Hide all sections
+      document.querySelectorAll('main > section').forEach(section => {
+        section.classList.add('hidden');
+      });
+      
+      // Show selected section
+      document.getElementById(pageId).classList.remove('hidden');
+      
+      // Update header title
+      const headerTitle = document.getElementById('header-title');
+      if (pageId === 'keywords-page') {
+        headerTitle.textContent = 'Keywords';
+      } else if (pageId === 'templates-page') {
+        headerTitle.textContent = 'Templates';
+      }
+      
+      // Update navigation button styles
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'bg-slate-700');
+        btn.classList.add('border-transparent');
+      });
+      
+      if (pageId === 'keywords-page') {
+        document.getElementById('nav-keywords').classList.add('border-blue-500', 'bg-slate-700');
+        document.getElementById('nav-keywords').classList.remove('border-transparent');
+      } else if (pageId === 'templates-page') {
+        document.getElementById('nav-templates').classList.add('border-blue-500', 'bg-slate-700');
+        document.getElementById('nav-templates').classList.remove('border-transparent');
+      }
+    }
+
+    // Render Keywords
+    function renderKeywords() {
+      const keywordList = document.getElementById('keyword-list');
+      keywordList.innerHTML = '';
+      
+      state.keywords.forEach((keyword, index) => {
+        const colorClass = tileColors[index % tileColors.length];
+        
+        const tile = document.createElement('div');
+        tile.className = `${colorClass} rounded-lg p-4 relative shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 cursor-pointer`;
+        
+        tile.innerHTML = `
+          <p class="font-semibold text-white pr-6 break-words">${keyword}</p>
+          <button class="delete-keyword-btn absolute top-2 right-2 bg-black bg-opacity-30 hover:bg-opacity-50 rounded-full w-6 h-6 flex items-center justify-center transition-all" data-keyword="${keyword}">
+            <span class="text-white text-sm font-bold">×</span>
+          </button>
+        `;
+        
+        keywordList.appendChild(tile);
+      });
+    }
+
+    // Render Templates
+    function renderTemplates() {
+      state.templates.forEach((template, index) => {
+        const textarea = document.getElementById(`template-${index + 1}`);
+        if (textarea) {
+          textarea.value = template;
+        }
+      });
+    }
+
+    // Initialize App
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load initial data
+      serverCall('getInitialData', null, (data) => {
+        state.keywords = data.keywords;
+        state.templates = data.templates;
+        renderKeywords();
+        renderTemplates();
+      });
+
+      // Navigation Event Listeners
+      document.getElementById('nav-keywords').addEventListener('click', () => {
+        navigateTo('keywords-page');
+      });
+
+      document.getElementById('nav-templates').addEventListener('click', () => {
+        navigateTo('templates-page');
+      });
+
+      // Add Keyword Form
+      document.getElementById('add-keyword-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('new-keyword-input');
+        const newKeyword = input.value.trim();
+        
+        if (newKeyword) {
+          serverCall('addKeyword', newKeyword, () => {
+            state.keywords.push(newKeyword);
+            renderKeywords();
+            input.value = '';
+          });
+        }
+      });
+
+      // Delete Keyword (Event Delegation)
+      document.getElementById('keyword-list').addEventListener('click', (e) => {
+        if (e.target.closest('.delete-keyword-btn')) {
+          const btn = e.target.closest('.delete-keyword-btn');
+          const keywordToDelete = btn.dataset.keyword;
+          
+          serverCall('deleteKeyword', keywordToDelete, () => {
+            state.keywords = state.keywords.filter(k => k !== keywordToDelete);
+            renderKeywords();
+          });
+        }
+      });
+
+      // Save Templates Form
+      document.getElementById('templates-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const templatesArray = [];
+        for (let i = 1; i <= 10; i++) {
+          const textarea = document.getElementById(`template-${i}`);
+          templatesArray.push(textarea.value);
+        }
+        
+        serverCall('saveTemplates', templatesArray, () => {
+          state.templates = templatesArray;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

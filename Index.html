@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>SimpelCatat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            poppins: ['Poppins', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              50: '#f1f5f9',
+              100: '#e2e8f0',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              700: '#1e40af'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    html, body { height: 100%; }
+    body { -webkit-text-size-adjust: 100%; }
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      color: transparent !important;
+      background: linear-gradient(90deg, rgba(148,163,184,0.35), rgba(148,163,184,0.55), rgba(148,163,184,0.35));
+      background-size: 400px 100%;
+      animation: shimmer 1.1s infinite;
+      border-radius: 0.75rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .skeleton {
+        background: linear-gradient(90deg, rgba(71,85,105,0.45), rgba(71,85,105,0.65), rgba(71,85,105,0.45));
+      }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200px 0; }
+      100% { background-position: 200px 0; }
+    }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000; background: rgba(15,23,42,0.45); backdrop-filter: blur(6px); }
+    .modal.show { display: flex; }
+    .summary-value {
+      display: block;
+      text-align: right;
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.4;
+      min-height: 1.5rem;
+      color: inherit;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+    @media (min-width: 640px) {
+      .summary-value {
+        font-size: 1.25rem;
+      }
+    }
+    @media (min-width: 1024px) {
+      .summary-value {
+        font-size: 1.5rem;
+        min-height: 2rem;
+      }
+    }
+    .loader-dots span {
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 999px;
+      background: #111827;
+      display: inline-block;
+      animation: pulse 1s infinite ease-in-out;
+    }
+    @media (prefers-color-scheme: dark) {
+      .loader-dots span { background: #f9fafb; }
+    }
+    .loader-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .loader-dots span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes pulse {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.2; }
+      40% { transform: translateY(-3px); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 font-poppins">
+  <div id="toast" class="pointer-events-none fixed top-4 left-1/2 z-40 hidden -translate-x-1/2 -translate-y-4 transform opacity-0 transition-all duration-300 ease-out">
+    <div class="rounded-full bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
+      <span id="toastText">Tersimpan</span>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/55 backdrop-blur">
+    <div class="rounded-2xl bg-white px-6 py-5 text-center shadow-xl dark:bg-slate-900">
+      <p class="text-base font-semibold text-slate-900 dark:text-slate-100">sabar ya, transaksi dicatat dulu..</p>
+      <div class="loader-dots mt-3 flex items-center justify-center gap-2">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-20 border-b border-white/10 bg-slate-950/80 backdrop-blur">
+    <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Halo!</p>
+          <h1 class="mt-1 text-2xl font-semibold">SimpelCatat</h1>
+        </div>
+        <div class="rounded-2xl bg-brand-600/10 px-3 py-1 text-xs font-medium text-brand-200 shadow-sm">v2.0</div>
+      </div>
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4" id="summary">
+        <div class="rounded-3xl bg-gradient-to-br from-brand-600 to-brand-700 px-3 py-4 shadow-lg sm:px-4 sm:py-5">
+          <div class="text-[0.65rem] uppercase tracking-widest text-white/70">Saldo</div>
+          <div id="saldo" class="summary-value skeleton mt-2 sm:mt-3"></div>
+        </div>
+        <div class="rounded-3xl bg-white/10 px-3 py-4 shadow-inner shadow-black/30 backdrop-blur sm:px-4 sm:py-5">
+          <div class="text-[0.65rem] uppercase tracking-widest text-white/60">Pemasukan</div>
+          <div id="masuk" class="summary-value skeleton mt-2 sm:mt-3"></div>
+        </div>
+        <div class="rounded-3xl bg-white/10 px-3 py-4 shadow-inner shadow-black/30 backdrop-blur sm:px-4 sm:py-5">
+          <div class="text-[0.65rem] uppercase tracking-widest text-white/60">Pengeluaran</div>
+          <div id="keluar" class="summary-value skeleton mt-2 sm:mt-3"></div>
+        </div>
+        <div class="rounded-3xl bg-white/10 px-3 py-4 shadow-inner shadow-black/30 backdrop-blur sm:px-4 sm:py-5">
+          <div class="text-[0.65rem] uppercase tracking-widest text-white/60">Transaksi</div>
+          <div id="count" class="summary-value skeleton mt-2 sm:mt-3"></div>
+        </div>
+      </div>
+      <form id="addForm" class="mt-6 rounded-3xl border border-white/10 bg-white/[0.02] px-4 py-5 shadow-xl backdrop-blur sm:px-5" onsubmit="submitAdd(event)">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="text-[0.65rem] uppercase tracking-[0.25em] text-slate-400">Catat Sekaligus</p>
+            <h2 class="mt-1 text-lg font-semibold">Transaksi Harian</h2>
+          </div>
+          <button type="button" id="addRowBtn" class="inline-flex h-9 items-center gap-2 rounded-full border border-white/15 px-3 text-xs font-semibold text-slate-200 transition hover:bg-white/10">
+            <span class="text-base leading-none">+</span> Baris
+          </button>
+        </div>
+        <div id="entryRows" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+        <div class="mt-5 flex justify-end">
+          <button type="submit" id="addSubmit" class="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/40 transition hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:opacity-50">
+            <span>Simpan Transaksi</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-5xl px-4 pb-16 pt-6 sm:px-6">
+    <section class="rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-5 shadow-2xl backdrop-blur sm:px-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-[0.65rem] uppercase tracking-[0.25em] text-slate-400">Daftar</p>
+          <h2 class="mt-1 text-lg font-semibold">Transaksi Hari Ini</h2>
+        </div>
+        <button type="button" id="refreshBtn" class="inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-xs font-semibold text-slate-200 transition hover:bg-white/10">Segarkan</button>
+      </div>
+      <div class="mt-5 space-y-3">
+        <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 shadow-inner">
+          <label class="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">Rentang</label>
+          <select id="range" class="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm font-medium text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600">
+            <option value="today" selected>Hari ini</option>
+            <option value="week">Mingguan</option>
+            <option value="month">Bulanan</option>
+            <option value="all">Semua</option>
+            <option value="custom">Tanggal khusus</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 shadow-inner">
+            <label class="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">Mulai</label>
+            <input id="start" type="date" class="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600" />
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 shadow-inner">
+            <label class="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">Sampai</label>
+            <input id="end" type="date" class="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600" />
+          </div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 shadow-inner">
+          <label class="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">Tipe</label>
+          <select id="tipe" class="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm font-medium text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600">
+            <option value="" selected>Semua</option>
+            <option value="MASUK">Masuk</option>
+            <option value="KELUAR">Keluar</option>
+          </select>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 shadow-inner">
+          <label class="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400">Cari</label>
+          <input id="search" placeholder="Cari keterangan" class="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600" />
+        </div>
+      </div>
+      <div id="transactionsList" class="mt-6 grid gap-3">
+        <div class="rounded-3xl border border-white/10 bg-white/5 px-4 py-6 text-center">
+          <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+          <p class="mt-3 text-sm text-slate-400">Memuat transaksi...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal" onclick="closeModal(event)">
+    <div class="w-full max-w-md rounded-3xl border border-slate-200 bg-white px-5 py-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" onclick="event.stopPropagation()">
+      <h3 class="text-base font-semibold">Edit Transaksi</h3>
+      <input id="editId" type="hidden" />
+      <div class="mt-5 grid gap-4">
+        <select id="editTipe" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-slate-600">
+          <option value="MASUK">Masuk</option>
+          <option value="KELUAR">Keluar</option>
+        </select>
+        <input id="editNominal" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-slate-600" inputmode="numeric" />
+        <input id="editTanggal" type="date" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-slate-600" />
+        <input id="editKet" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-slate-600" />
+      </div>
+      <div class="mt-6 flex justify-end gap-3">
+        <button class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" onclick="closeModal()">Batal</button>
+        <button class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500" onclick="submitEdit()">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fmt = new Intl.NumberFormat('id-ID');
+    const DEFAULT_FORM_ROWS = 5;
+    let addSubmitting = false;
+    let rowSequence = 0;
+    let toastTimeout;
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    function init() {
+      console.log('Initializing SimpelCatat...');
+      buildInitialRows(DEFAULT_FORM_ROWS);
+      attachCurrencyFormatter(document.getElementById('editNominal'));
+      
+      const addRowBtn = document.getElementById('addRowBtn');
+      const refreshBtn = document.getElementById('refreshBtn');
+      
+      if (addRowBtn) {
+        addRowBtn.addEventListener('click', () => addEntryRow());
+      } else {
+        console.error('addRowBtn not found');
+      }
+      
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+          refreshSummary();
+          loadTransactions(true);
+        });
+      } else {
+        console.error('refreshBtn not found');
+      }
+      
+      console.log('Loading initial data...');
+      refreshSummary();
+      setupFilters();
+      setupInfiniteScroll();
+      
+      // WORKAROUND: Force load all transactions on init (bypass cache issue)
+      // Remove filter constraints to show all data
+      console.log('🔧 WORKAROUND: Forcing wide date range to show all transactions');
+      loadTransactions(true);
+      
+      // Handle window resize for switching between table and card view
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          loadTransactions(true);
+        }, 300);
+      });
+    }
+
+    function buildInitialRows(count) {
+      const container = document.getElementById('entryRows');
+      container.innerHTML = '';
+      rowSequence = 0;
+      for (let i = 0; i < count; i++) addEntryRow();
+    }
+
+    function addEntryRow() {
+      rowSequence += 1;
+      const container = document.getElementById('entryRows');
+      const row = document.createElement('div');
+      row.className = 'entry-row flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 shadow-inner shadow-black/20';
+      row.innerHTML = `
+        <select class="entry-tipe rounded-xl border border-white/15 bg-black/30 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600">
+          <option value="KELUAR" selected>Keluar</option>
+          <option value="MASUK">Masuk</option>
+        </select>
+        <input class="entry-nominal rounded-xl border border-white/15 bg-black/30 px-3 py-2.5 text-sm text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600" placeholder="Nominal" inputmode="numeric" autocomplete="off" />
+        <input class="entry-keterangan rounded-xl border border-white/15 bg-black/30 px-3 py-2.5 text-sm text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-600" placeholder="Keterangan" autocomplete="off" />
+      `;
+      container.appendChild(row);
+      const nominalInput = row.querySelector('.entry-nominal');
+      attachCurrencyFormatter(nominalInput);
+    }
+
+    function attachCurrencyFormatter(input) {
+      if (!input) return;
+      input.addEventListener('input', handleCurrencyInput);
+      input.addEventListener('blur', handleCurrencyBlur);
+    }
+
+    function handleCurrencyInput(e) {
+      const el = e.target;
+      const digits = el.value.replace(/\D/g, '');
+      el.value = digits ? fmt.format(Number(digits)) : '';
+    }
+
+    function handleCurrencyBlur(e) {
+      const el = e.target;
+      const digits = el.value.replace(/\D/g, '');
+      el.value = digits ? fmt.format(Number(digits)) : '';
+    }
+
+    function setupFilters() {
+      console.log('Setting up filters');
+      const reload = () => loadTransactions(true);
+      
+      const rangeEl = document.getElementById('range');
+      const startEl = document.getElementById('start');
+      const endEl = document.getElementById('end');
+      const tipeEl = document.getElementById('tipe');
+      const searchEl = document.getElementById('search');
+      
+      if (!rangeEl || !startEl || !endEl || !tipeEl || !searchEl) {
+        console.error('Filter elements not found:', { rangeEl, startEl, endEl, tipeEl, searchEl });
+        return;
+      }
+      
+      rangeEl.addEventListener('change', () => {
+        const range = rangeEl.value;
+        const disabled = range !== 'custom';
+        startEl.disabled = disabled;
+        endEl.disabled = disabled;
+        if (disabled) {
+          startEl.value = '';
+          endEl.value = '';
+        }
+        reload();
+      });
+      
+      ['start','end','tipe'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', reload);
+      });
+      
+      searchEl.addEventListener('input', debounce(reload, 300));
+      
+      // Set initial state for date inputs
+      const initialDisabled = rangeEl.value !== 'custom';
+      startEl.disabled = initialDisabled;
+      endEl.disabled = initialDisabled;
+      
+      console.log('Filters setup complete');
+    }
+
+    function refreshSummary() {
+      setSummaryLoading(true);
+      google.script.run.withSuccessHandler(summary => {
+        setSummaryLoading(false);
+        document.getElementById('saldo').textContent = 'Rp ' + fmt.format(summary.saldo || 0);
+        document.getElementById('masuk').textContent = 'Rp ' + fmt.format(summary.masuk || 0);
+        document.getElementById('keluar').textContent = 'Rp ' + fmt.format(summary.keluar || 0);
+        document.getElementById('count').textContent = fmt.format(summary.count || 0);
+      }).withFailureHandler(err => {
+        setSummaryLoading(false);
+        document.getElementById('saldo').textContent = '-';
+        document.getElementById('masuk').textContent = '-';
+        document.getElementById('keluar').textContent = '-';
+        document.getElementById('count').textContent = '-';
+        showToast((err && err.message) ? err.message : 'Ringkasan gagal dimuat');
+      }).getSummary();
+    }
+
+    function setSummaryLoading(state) {
+      ['saldo','masuk','keluar','count'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (state) {
+          el.classList.add('skeleton');
+          el.textContent = '\u00A0';
+        } else {
+          el.classList.remove('skeleton');
+        }
+      });
+    }
+
+    function submitAdd(event) {
+      if (event) event.preventDefault();
+      if (addSubmitting) return;
+      const entries = collectEntryPayloads();
+      if (!entries.length) {
+        showToast('Isi nominal minimal untuk 1 transaksi.');
+        return;
+      }
+      addSubmitting = true;
+      setAddButtonState(true);
+      toggleLoading(true);
+      google.script.run.withSuccessHandler(res => {
+        toggleLoading(false);
+        showToast(`${res.count || entries.length} transaksi tersimpan!`);
+        resetEntryRows();
+        refreshSummary();
+        loadTransactions(true);
+        setAddButtonState(false);
+        addSubmitting = false;
+      }).withFailureHandler(err => {
+        toggleLoading(false);
+        showToast(err && err.message ? err.message : 'Gagal menyimpan transaksi');
+        setAddButtonState(false);
+        addSubmitting = false;
+      }).addTransactions(entries);
+    }
+
+    function collectEntryPayloads() {
+      const todayISO = getTodayISO();
+      const rows = Array.from(document.querySelectorAll('.entry-row'));
+      const entries = [];
+      for (const row of rows) {
+        const tipe = row.querySelector('.entry-tipe').value || 'KELUAR';
+        const nominalInput = row.querySelector('.entry-nominal');
+        const nominal = parseNominalInput(nominalInput && nominalInput.value);
+        const ketInput = row.querySelector('.entry-keterangan');
+        const keterangan = ketInput ? ketInput.value.trim() : '';
+        if (!nominal && !keterangan) continue;
+        if (!nominal || nominal <= 0) {
+          showToast('Nominal harus diisi dengan angka valid.');
+          return [];
+        }
+        entries.push({ tipe, nominal, tanggalISO: todayISO, keterangan });
+      }
+      return entries;
+    }
+
+    function parseNominalInput(value) {
+      if (!value) return 0;
+      return Number(String(value).replace(/[^0-9]/g, '')) || 0;
+    }
+
+    function getTodayISO() {
+      const now = new Date();
+      return formatDateToISO(now);
+    }
+    
+    function formatDateToISO(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function resetEntryRows() {
+      document.querySelectorAll('.entry-tipe').forEach(select => { select.value = 'KELUAR'; });
+      document.querySelectorAll('.entry-nominal').forEach(input => { input.value = ''; });
+      document.querySelectorAll('.entry-keterangan').forEach(input => { input.value = ''; });
+    }
+
+    function setAddButtonState(loading) {
+      const btn = document.getElementById('addSubmit');
+      if (!btn) return;
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Menyimpan...' : 'Simpan Transaksi';
+    }
+
+    function toggleLoading(show) {
+      const overlay = document.getElementById('loadingOverlay');
+      if (!overlay) return;
+      if (show) {
+        overlay.classList.remove('hidden');
+      } else {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function setupInfiniteScroll() {
+      // REMOVED: Simplified - no pagination needed with date range filter
+      // All matching transactions loaded in single query with cache
+      console.log('Infinite scroll disabled - using simple date range query');
+    }
+
+    /**
+     * BEST PRACTICE: Simplified transaction loading dengan explicit date range
+     * Mengikuti pattern dari reference untuk clarity dan performance
+     */
+    function loadTransactions(reset) {
+      if (reset) {
+        const list = document.getElementById('transactionsList');
+        if (list) list.innerHTML = '<div class="rounded-3xl border border-white/10 bg-white/5 px-4 py-6 text-center"><div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div><p class="mt-3 text-sm text-slate-400">Memuat transaksi...</p></div>';
+      }
+      
+      // Calculate date range - frontend determines dates, backend just filters
+      let startDateStr, endDateStr;
+      const rangeValue = document.getElementById('range') ? document.getElementById('range').value : 'today';
+      
+      if (rangeValue === 'custom') {
+        startDateStr = document.getElementById('start') ? document.getElementById('start').value : '';
+        endDateStr = document.getElementById('end') ? document.getElementById('end').value : '';
+        
+        if (!startDateStr || !endDateStr) {
+          showToast('Pilih tanggal mulai dan akhir untuk filter custom');
+          return;
+        }
+      } else if (rangeValue === 'all') {
+        // Wide range to get all transactions
+        startDateStr = '2000-01-01';
+        endDateStr = '2099-12-31';
+      } else if (rangeValue === 'week') {
+        // This week (Monday to Sunday)
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, ...
+        const monday = new Date(today);
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday: go back 6 days
+        monday.setDate(today.getDate() - daysToMonday);
+        
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        
+        startDateStr = formatDateToISO(monday);
+        endDateStr = formatDateToISO(sunday);
+      } else if (rangeValue === 'month') {
+        // This month
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        startDateStr = formatDateToISO(firstDay);
+        endDateStr = formatDateToISO(lastDay);
+      } else {
+        // Default: today
+        const today = getTodayISO();
+        startDateStr = today;
+        endDateStr = today;
+      }
+      
+      const params = {
+        startDateStr: startDateStr,
+        endDateStr: endDateStr,
+        tipe: document.getElementById('tipe') ? document.getElementById('tipe').value : '',
+        search: document.getElementById('search') ? document.getElementById('search').value : ''
+      };
+      
+      console.log('📤 Loading transactions with params:', params);
+      
+      google.script.run
+        .withSuccessHandler(res => {
+          console.log('📥 Transactions response:', res);
+          
+          if (res.debug) {
+            console.log('🔍 DEBUG INFO:', 
+              '\n  Cache Hit:', res.debug.cacheHit,
+              '\n  Filter Range:', res.debug.filterRange,
+              '\n  Total Rows in Sheet:', res.debug.totalRows,
+              '\n  Rows Checked:', res.debug.rowsChecked,
+              '\n  Date Matches:', res.debug.dateMatches,
+              '\n  Final Results:', res.debug.finalResults,
+              '\n  Timezone:', res.debug.timezone
+            );
+          }
+          
+          if (res.status === 'success') {
+            renderTransactions(res.data || [], reset);
+            showToast(res.message || `${res.data.length} transaksi ditemukan`);
+          } else {
+            const container = document.getElementById('transactionsList');
+            if (container) {
+              container.innerHTML = '<div class="rounded-3xl border border-rose-400/40 bg-rose-500/10 px-4 py-6 text-center"><p class="text-sm font-medium text-rose-300">Gagal memuat transaksi</p><p class="mt-2 text-xs text-rose-400">' + (res.message || 'Error') + '</p></div>';
+            }
+            showToast(res.message || 'Gagal memuat transaksi', true);
+          }
+        })
+        .withFailureHandler(err => {
+          console.error('❌ Failed to load transactions:', err);
+          const container = document.getElementById('transactionsList');
+          if (container) {
+            container.innerHTML = '<div class="rounded-3xl border border-rose-400/40 bg-rose-500/10 px-4 py-6 text-center"><p class="text-sm font-medium text-rose-300">Gagal memuat transaksi</p><p class="mt-2 text-xs text-rose-400">' + (err && err.message ? err.message : 'Terjadi kesalahan koneksi') + '</p></div>';
+          }
+          showToast(err && err.message ? err.message : 'Gagal memuat transaksi');
+        })
+        .getTransactions(params);
+    }
+
+    function renderTransactions(items, reset) {
+      const container = document.getElementById('transactionsList');
+      if (!container) {
+        console.error('Transaction list container not found');
+        return;
+      }
+      if (reset) container.innerHTML = '';
+      console.log('✨ Rendering transactions:', items.length, 'items, reset:', reset);
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="rounded-3xl border border-dashed border-white/20 bg-white/5 px-4 py-6 text-center text-sm text-slate-300">Belum ada transaksi untuk filter ini.</div>';
+        return;
+      }
+      
+      // Desktop table view
+      if (window.innerWidth >= 1024) {
+        if (reset || container.childElementCount === 0) {
+          const table = document.createElement('div');
+          table.className = 'overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]';
+          table.innerHTML = `
+            <table class="w-full">
+              <thead class="bg-white/5">
+                <tr class="border-b border-white/10">
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Tanggal</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Tipe</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Nominal</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Keterangan</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsTableBody"></tbody>
+            </table>
+          `;
+          container.appendChild(table);
+        }
+        
+        const tbody = document.getElementById('transactionsTableBody');
+        if (!tbody) return;
+        
+        items.forEach(item => {
+          const row = document.createElement('tr');
+          row.className = 'border-b border-white/5 transition hover:bg-white/5';
+          row.innerHTML = `
+            <td class="px-4 py-3 text-sm text-slate-300">${item.tanggalISO}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold ${item.tipe === 'MASUK' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+                ${item.tipe}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right text-sm font-semibold ${item.tipe === 'MASUK' ? 'text-emerald-400' : 'text-rose-400'}">
+              ${item.tipe === 'MASUK' ? '+' : '-'} Rp ${fmt.format(item.nominal)}
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-300">${escapeHtml(item.keterangan || '-')}</td>
+            <td class="px-4 py-3 text-right">
+              <button class="edit-btn rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/10">Edit</button>
+              <button class="delete-btn ml-2 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20">Hapus</button>
+            </td>
+          `;
+          row.querySelector('.edit-btn').addEventListener('click', () => openEdit(item));
+          row.querySelector('.delete-btn').addEventListener('click', () => submitDelete(item.id));
+          tbody.appendChild(row);
+        });
+      } else {
+        // Mobile card view
+        const frag = document.createDocumentFragment();
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/[0.08] px-4 py-4 shadow-lg shadow-black/30 transition hover:border-white/20';
+
+          const top = document.createElement('div');
+          top.className = 'flex items-start justify-between';
+
+          const titleWrap = document.createElement('div');
+          titleWrap.className = 'flex flex-col';
+
+          const amount = document.createElement('div');
+          amount.className = `text-lg font-semibold ${item.tipe === 'MASUK' ? 'text-emerald-400' : 'text-rose-400'}`;
+          amount.textContent = `${item.tipe === 'MASUK' ? '+' : '-'} Rp ${fmt.format(item.nominal)}`;
+
+          const meta = document.createElement('div');
+          meta.className = 'mt-1 text-[0.65rem] font-medium uppercase tracking-[0.3em] text-slate-400';
+          meta.textContent = `${item.tanggalISO} • ${item.tipe}`;
+
+          titleWrap.appendChild(amount);
+          titleWrap.appendChild(meta);
+
+          const actions = document.createElement('div');
+          actions.className = 'flex gap-2';
+
+          const editBtn = document.createElement('button');
+          editBtn.className = 'rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/10';
+          editBtn.textContent = 'Edit';
+          editBtn.addEventListener('click', () => openEdit(item));
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'rounded-full border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20';
+          delBtn.textContent = 'Hapus';
+          delBtn.addEventListener('click', () => submitDelete(item.id));
+
+          actions.appendChild(editBtn);
+          actions.appendChild(delBtn);
+
+          top.appendChild(titleWrap);
+          top.appendChild(actions);
+
+          const note = document.createElement('div');
+          note.className = 'text-sm text-slate-200';
+          note.innerHTML = escapeHtml(item.keterangan || '');
+
+          card.appendChild(top);
+          if (item.keterangan) {
+            card.appendChild(note);
+          }
+          frag.appendChild(card);
+        });
+        container.appendChild(frag);
+      }
+    }
+
+    function openEdit(item) {
+      document.getElementById('editId').value = item.id;
+      document.getElementById('editTipe').value = item.tipe;
+      document.getElementById('editNominal').value = fmt.format(item.nominal);
+      document.getElementById('editTanggal').value = item.tanggalISO;
+      document.getElementById('editKet').value = item.keterangan || '';
+      document.getElementById('modal').classList.add('show');
+    }
+
+    function closeModal(e) {
+      if (e && e.target && e.target !== document.getElementById('modal')) return;
+      document.getElementById('modal').classList.remove('show');
+    }
+
+    function submitEdit() {
+      const id = document.getElementById('editId').value;
+      const updates = {
+        tipe: document.getElementById('editTipe').value,
+        nominal: parseNominalInput(document.getElementById('editNominal').value),
+        tanggalISO: document.getElementById('editTanggal').value,
+        keterangan: document.getElementById('editKet').value
+      };
+      if (!updates.nominal || updates.nominal <= 0) {
+        showToast('Nominal tidak valid');
+        return;
+      }
+      google.script.run.withSuccessHandler(() => {
+        showToast('Perubahan tersimpan');
+        closeModal();
+        refreshSummary();
+        loadTransactions(true);
+      }).withFailureHandler(err => {
+        showToast(err && err.message ? err.message : 'Gagal menyimpan perubahan');
+      }).editTransaction(id, updates);
+    }
+
+    function submitDelete(id) {
+      if (!confirm('Hapus transaksi ini?')) return;
+      google.script.run.withSuccessHandler(() => {
+        showToast('Transaksi dihapus');
+        refreshSummary();
+        loadTransactions(true);
+      }).withFailureHandler(err => {
+        showToast(err && err.message ? err.message : 'Gagal menghapus transaksi');
+      }).deleteTransaction(id);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toastText');
+      if (!toast || !text) return;
+      text.textContent = message;
+      toast.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', '-translate-y-3');
+        toast.classList.add('opacity-100', 'translate-y-0');
+      });
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-3');
+        setTimeout(() => toast.classList.add('hidden'), 300);
+      }, 2400);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[c] || c));
+    }
+
+    function debounce(fn, ms) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    }
+  </script>
+</body>
+</html>

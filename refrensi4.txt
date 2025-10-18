@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catatan Keuangan</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#4a90e2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CatatUang">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="CatatUang">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?path=manifest.json">
+  
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="https://drive.google.com/uc?id=YOUR_192_ICON_FILE_ID">
+  <link rel="apple-touch-icon" sizes="192x192" href="https://drive.google.com/uc?id=YOUR_192_ICON_FILE_ID">
+  <link rel="apple-touch-icon" sizes="512x512" href="https://drive.google.com/uc?id=YOUR_512_ICON_FILE_ID">
+  
+  <!-- Fallback Icon -->
+  <link rel="icon" type="image/png" sizes="192x192" href="https://drive.google.com/uc?id=YOUR_192_ICON_FILE_ID">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://drive.google.com/uc?id=YOUR_512_ICON_FILE_ID">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Base styles */
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Page transitions */
+    .page { 
+      animation: fadeIn 0.3s ease-in-out; 
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Component states */
+    .bottom-nav-item.active svg, 
+    .bottom-nav-item.active p {
+      color: #3b82f6;
+    }
+    
+    .filter-btn.active {
+      background-color: #3b82f6 !important;
+      color: white !important;
+      border-color: #3b82f6 !important;
+    }
+    
+    .filter-btn:not(.active) {
+      background-color: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #475569;
+    }
+    
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { 
+      background: #cbd5e1; 
+      border-radius: 10px; 
+    }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+  <div id="app" class="max-w-lg mx-auto bg-white min-h-screen shadow-lg pb-24">
+    
+    <!-- Message Container -->
+    <div id="message" class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-lg text-white z-50"></div>
+    
+    <header class="bg-blue-500 text-white p-4 shadow-md sticky top-0 z-10">
+      <h1 id="header-title" class="text-xl font-bold text-center">Ringkasan</h1>
+    </header>
+
+    <main class="p-4">
+      
+      <div id="loader" class="hidden fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+      </div>
+
+      <!-- Halaman Ringkasan -->
+      <section id="summary-page" class="page">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg shadow">
+            <p class="text-sm font-medium">Pemasukan</p>
+            <p id="summary-income" class="text-2xl font-bold">Rp 0</p>
+          </div>
+          <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow">
+            <p class="text-sm font-medium">Pengeluaran</p>
+            <p id="summary-expense" class="text-2xl font-bold">Rp 0</p>
+          </div>
+        </div>
+        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg shadow mt-4">
+          <p class="text-sm font-medium">Total Saldo</p>
+          <p id="summary-balance" class="text-3xl font-bold">Rp 0</p>
+        </div>
+        
+        <!-- Saldo Dompet -->
+        <div class="mt-6">
+          <h2 class="text-lg font-bold text-slate-700 mb-2">Saldo Dompet</h2>
+          <div id="wallet-balances-list" class="space-y-2">
+            <!-- Saldo dompet akan di-render di sini -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Halaman Tambah Transaksi -->
+      <section id="add-page" class="page hidden">
+        <form id="transaction-form" class="space-y-4">
+          <div>
+            <label for="date" class="block text-sm font-medium text-slate-600">Tanggal</label>
+            <input type="date" id="date" name="date" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label for="type" class="block text-sm font-medium text-slate-600">Jenis Transaksi</label>
+            <select id="type" name="type" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+               <option value="Keluar">Pengeluaran</option>
+              <option value="Masuk">Pemasukan</option>
+              <option value="Transfer">Transfer</option>
+            </select>
+          </div>
+          <div id="category-container">
+            <label for="category" class="block text-sm font-medium text-slate-600">Kategori</label>
+            <select id="category" name="category" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </select>
+          </div>
+          <div id="wallet-from-container" class="hidden">
+            <label for="from-wallet" class="block text-sm font-medium text-slate-600">Dari Dompet</label>
+            <select id="from-wallet" name="from-wallet" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </select>
+          </div>
+          <div id="wallet-to-container">
+            <label for="to-wallet" class="block text-sm font-medium text-slate-600">Ke Dompet</label>
+            <select id="to-wallet" name="to-wallet" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </select>
+          </div>
+          <div>
+            <label for="description" class="block text-sm font-medium text-slate-600">Deskripsi</label>
+            <input type="text" id="description" name="description" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+          </div>
+          <div>
+            <label for="amount" class="block text-sm font-medium text-slate-600">Nominal</label>
+            <input type="text" id="amount" name="amount" inputmode="numeric" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+          </div>
+          <div>
+            <label for="notes" class="block text-sm font-medium text-slate-600">Catatan (Opsional)</label>
+            <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+          </div>
+          <button type="submit" id="submit-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+            Simpan Transaksi
+          </button>
+        </form>
+      </section>
+
+      <!-- Halaman Edit Transaksi -->
+      <section id="edit-page" class="page hidden">
+        <form id="edit-form" class="space-y-4">
+          <input type="hidden" id="edit-id" name="edit-id">
+          <div>
+            <label for="edit-date" class="block text-sm font-medium text-slate-600">Tanggal</label>
+            <input type="date" id="edit-date" name="edit-date" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label for="edit-type" class="block text-sm font-medium text-slate-600">Jenis Transaksi</label>
+            <select id="edit-type" name="edit-type" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+              <option value="Keluar">Pengeluaran</option>
+              <option value="Masuk">Pemasukan</option>
+              <option value="Transfer">Transfer</option>
+            </select>
+          </div>
+          <div id="edit-category-container">
+            <label for="edit-category" class="block text-sm font-medium text-slate-600">Kategori</label>
+            <select id="edit-category" name="edit-category" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </select>
+          </div>
+          <div id="edit-wallet-from-container" class="hidden">
+            <label for="edit-from-wallet" class="block text-sm font-medium text-slate-600">Dari Dompet</label>
+            <select id="edit-from-wallet" name="edit-from-wallet" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </select>
+          </div>
+          <div id="edit-wallet-to-container">
+            <label for="edit-to-wallet" class="block text-sm font-medium text-slate-600">Ke Dompet</label>
+            <select id="edit-to-wallet" name="edit-to-wallet" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </select>
+          </div>
+          <div>
+            <label for="edit-description" class="block text-sm font-medium text-slate-600">Deskripsi</label>
+            <input type="text" id="edit-description" name="edit-description" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+          </div>
+          <div>
+            <label for="edit-amount" class="block text-sm font-medium text-slate-600">Nominal</label>
+            <input type="text" id="edit-amount" name="edit-amount" inputmode="numeric" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+          </div>
+          <div>
+            <label for="edit-notes" class="block text-sm font-medium text-slate-600">Catatan (Opsional)</label>
+            <textarea id="edit-notes" name="edit-notes" rows="3" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" id="edit-submit-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+              Perbarui Transaksi
+            </button>
+            <button type="button" id="cancel-edit-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+              Batal
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Halaman Semua Transaksi -->
+      <section id="transactions-page" class="page hidden">
+        <!-- Summary Keuangan untuk Periode Terpilih -->
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
+          <h3 class="text-sm font-semibold text-slate-600 mb-3">Ringkasan Keuangan</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+              <p class="text-xs text-green-600 font-medium">Pemasukan</p>
+              <p id="transaction-summary-income" class="text-lg font-bold text-green-700">Rp 0</p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+              <p class="text-xs text-red-600 font-medium">Pengeluaran</p>
+              <p id="transaction-summary-expense" class="text-lg font-bold text-red-700">Rp 0</p>
+            </div>
+          </div>
+          <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+            <p class="text-xs text-blue-600 font-medium">Saldo Bersih</p>
+            <p id="transaction-summary-balance" class="text-lg font-bold text-blue-700">Rp 0</p>
+          </div>
+        </div>
+
+        <!-- Filter Transaksi -->
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
+          <h3 class="text-sm font-semibold text-slate-600 mb-3">Filter Transaksi</h3>
+          
+          <!-- Filter Buttons -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <button data-filter="yesterday" class="filter-btn bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-medium py-2 px-3 rounded-lg transition-colors">
+              Kemarin
+            </button>
+            <button data-filter="today" class="filter-btn bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors active">
+              Hari Ini
+            </button>
+            <button data-filter="thisWeek" class="filter-btn bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-medium py-2 px-3 rounded-lg transition-colors">
+              Minggu Ini
+            </button>
+            <button data-filter="thisMonth" class="filter-btn bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-medium py-2 px-3 rounded-lg transition-colors">
+              Bulan Ini
+            </button>
+          </div>
+          
+          <!-- Custom Date Range -->
+          <div class="border-t border-slate-200 pt-4">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="date" id="start-date" class="flex-1 text-xs px-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <span class="text-slate-500 text-xs">s/d</span>
+              <input type="date" id="end-date" class="flex-1 text-xs px-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            <button id="apply-date-range" class="w-full bg-slate-600 hover:bg-slate-700 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors">
+              Terapkan Rentang Tanggal
+            </button>
+          </div>
+        </div>
+
+        <!-- Header Transaksi -->
+        <div class="flex justify-between items-center mb-4">
+          <h2 id="transactions-title" class="text-lg font-bold text-slate-700">Transaksi Hari Ini</h2>
+          <div class="flex gap-2">
+            <button id="debug-btn" class="bg-orange-500 hover:bg-orange-600 text-white font-medium text-xs py-2 px-3 rounded-lg flex items-center gap-1">
+              <span>🔍</span>
+              Debug
+            </button>
+            <button id="reload-transactions-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium text-xs py-2 px-3 rounded-lg flex items-center gap-1">
+              <span>🔄</span>
+              Muat Ulang
+            </button>
+          </div>
+        </div>
+        
+        <div id="transactions-list" class="space-y-3">
+          <p id="no-transactions-msg" class="text-center text-slate-500 mt-8">Memuat transaksi hari ini...</p>
+        </div>
+      </section>
+      
+    </main>
+
+    <!-- Modal Konfirmasi Hapus -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-4">
+        <h3 class="text-lg font-bold text-slate-800 mb-4">Hapus Transaksi</h3>
+        <p class="text-slate-600 mb-6">Apakah Anda yakin ingin menghapus transaksi ini? Tindakan ini tidak dapat dibatalkan.</p>
+        <div class="flex gap-3">
+          <button id="confirm-delete-btn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">
+            Hapus
+          </button>
+          <button id="cancel-delete-btn" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white border-t border-slate-200 shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
+      <div class="flex justify-around">
+        <button data-page="summary-page" class="bottom-nav-item flex-1 p-3 text-center text-slate-500 active">
+          <span class="mx-auto block text-xl">📊</span>
+          <p class="text-xs mt-1">Ringkasan</p>
+        </button>
+        <button data-page="add-page" class="bottom-nav-item flex-1 p-3 text-center text-slate-500">
+          <span class="mx-auto block text-xl">➕</span>
+          <p class="text-xs mt-1">Tambah</p>
+        </button>
+        <button data-page="transactions-page" class="bottom-nav-item flex-1 p-3 text-center text-slate-500">
+          <span class="mx-auto block text-xl">📋</span>
+          <p class="text-xs mt-1">Transaksi</p>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <script>
+    window.onload = () => {
+      // --- ELEMENT SELECTORS ---
+      const pages = document.querySelectorAll('.page');
+      const navItems = document.querySelectorAll('.bottom-nav-item');
+      const headerTitle = document.getElementById('header-title');
+      const loader = document.getElementById('loader');
+      const transactionForm = document.getElementById('transaction-form');
+      const editForm = document.getElementById('edit-form');
+      const amountInput = document.getElementById('amount');
+      const editAmountInput = document.getElementById('edit-amount');
+      const dateInput = document.getElementById('date');
+      const typeSelect = document.getElementById('type');
+      const editTypeSelect = document.getElementById('edit-type');
+      const categoryContainer = document.getElementById('category-container');
+      const editCategoryContainer = document.getElementById('edit-category-container');
+      const walletFromContainer = document.getElementById('wallet-from-container');
+      const editWalletFromContainer = document.getElementById('edit-wallet-from-container');
+      const walletToContainer = document.getElementById('wallet-to-container');
+      const editWalletToContainer = document.getElementById('edit-wallet-to-container');
+      const transactionsList = document.getElementById('transactions-list');
+      const deleteModal = document.getElementById('delete-modal');
+      const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+      const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+      const cancelEditBtn = document.getElementById('cancel-edit-btn');
+      const filterBtns = document.querySelectorAll('.filter-btn');
+      const startDateInput = document.getElementById('start-date');
+      const endDateInput = document.getElementById('end-date');
+      const applyDateRangeBtn = document.getElementById('apply-date-range');
+      const reloadTransactionsBtn = document.getElementById('reload-transactions-btn');
+      const transactionsTitle = document.getElementById('transactions-title');
+      const debugBtn = document.getElementById('debug-btn');
+      
+      let currentDeleteId = null;
+      let appData = { 
+        categories: [], // Untuk kompatibilitas mundur
+        incomeCategories: [],
+        expenseCategories: [],
+        wallets: [] 
+      };
+      let currentFilter = 'today';
+      let customDateRange = null;
+      
+      // --- UTILITY FUNCTIONS ---
+      
+      // Form validation helper
+      const validateTransactionForm = (data) => {
+        if (data.type === 'Masuk' && !data.toWallet) {
+          return 'Pemasukan membutuhkan dompet tujuan!';
+        }
+        if (data.type === 'Keluar' && !data.fromWallet) {
+          return 'Pengeluaran membutuhkan dompet sumber!';
+        }
+        if (data.type === 'Transfer' && (!data.fromWallet || !data.toWallet)) {
+          return 'Transfer membutuhkan dompet sumber dan tujuan!';
+        }
+        return null; // No error
+      };
+      
+      // Button state management
+      const setButtonLoading = (button, loadingText = 'Loading...') => {
+        button.disabled = true;
+        button.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>`;
+      };
+      
+      const resetSubmitButton = (button, text) => {
+        button.disabled = false;
+        button.textContent = text;
+      };
+      
+      
+      // Form data extraction helper
+      const extractFormData = (form, fieldMapping) => {
+        const formData = new FormData(form);
+        const data = {};
+        
+        for (const [fieldName, dataKey] of Object.entries(fieldMapping)) {
+          data[dataKey] = formData.get(fieldName) || '';
+        }
+        
+        return data;
+      };
+      
+      const utils = {
+        showLoader() {
+          loader.classList.remove('hidden');
+        },
+        
+        hideLoader() {
+          loader.classList.add('hidden');
+        },
+        
+        formatCurrency(value) {
+          return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
+        },
+        
+        formatDate(dateString) {
+          const options = { year: 'numeric', month: 'long', day: 'numeric' };
+          return new Date(dateString).toLocaleDateString('id-ID', options);
+        },
+        
+        showMessage(message, type = 'info') {
+          const messageDiv = document.getElementById('message');
+          if (messageDiv) {
+            messageDiv.textContent = message;
+            messageDiv.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-lg text-white z-50 ${
+              type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+            }`;
+            messageDiv.classList.remove('hidden');
+            setTimeout(() => {
+              messageDiv.classList.add('hidden');
+            }, 3000);
+          } else {
+            alert(message);
+          }
+        },
+        
+        showDeleteModal(transactionId) {
+          currentDeleteId = transactionId;
+          deleteModal.classList.remove('hidden');
+        },
+        
+        hideDeleteModal() {
+          currentDeleteId = null;
+          deleteModal.classList.add('hidden');
+        }
+      };
+      
+      // --- PAGE NAVIGATION ---
+      const navigateTo = (pageId) => {
+        pages.forEach(page => page.classList.toggle('hidden', page.id !== pageId));
+        navItems.forEach(item => {
+          item.classList.toggle('active', item.dataset.page === pageId);
+          if (item.dataset.page === pageId) {
+            headerTitle.textContent = item.querySelector('p').textContent;
+          }
+        });
+        
+        // Handle edit page special case
+        if (pageId === 'edit-page') {
+          headerTitle.textContent = 'Edit Transaksi';
+        }
+        
+        window.scrollTo(0, 0);
+        
+        // Auto-load transaksi dengan filter aktif ketika tab transaksi diklik
+        if (pageId === 'transactions-page') {
+          if (customDateRange) {
+            loadTransactionsByDateRange(customDateRange.start, customDateRange.end);
+            updateFilterTitle(null, customDateRange);
+          } else {
+            loadTransactionsByFilter(currentFilter);
+            updateFilterTitle(currentFilter);
+          }
+        }
+      };
+
+      navItems.forEach(item => {
+        item.addEventListener('click', () => navigateTo(item.dataset.page));
+      });
+
+      // --- SERVER CALL FUNCTIONS ---
+      const serverCall = {
+        call(functionName, data = {}) {
+          return new Promise((resolve, reject) => {
+            // Gunakan google.script.run untuk produksi
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(reject)
+                [functionName](data);
+            } else {
+              // Fallback untuk testing lokal - hapus ini saat deploy
+              console.warn('Google Apps Script tidak tersedia, menggunakan data simulasi');
+              setTimeout(() => {
+                switch(functionName) {
+                  case 'getInitialData':
+                    resolve({
+                      summary: { income: 1000000, expense: 500000, balance: 500000 },
+                      walletBalances: { "Tunai": 200000, "Bank": 300000 },
+                      categories: ["Gaji", "Bonus", "Makanan", "Transport", "Hiburan"], // Kompatibilitas mundur
+                      incomeCategories: ["Gaji", "Bonus", "Freelance", "Investasi"],
+                      expenseCategories: ["Makanan", "Transport", "Hiburan", "Belanja", "Tagihan"],
+                      wallets: ["Tunai", "Bank"]
+                    });
+                    break;
+                  case 'getTodaysTransactions':
+                    resolve({
+                      status: 'success',
+                      data: [
+                        {
+                          id: 2,
+                          tanggal: new Date().toLocaleDateString('id-ID'),
+                          jenis: 'Pemasukan',
+                          kategori: 'Gaji',
+                          deskripsi: 'Gaji bulan ini',
+                          dompet_ke: 'Bank',
+                          nominal: 5000000,
+                          catatan: 'Gaji pokok'
+                        }
+                      ]
+                    });
+                    break;
+                  case 'getTransactionsByFilter':
+                    resolve({
+                      status: 'success',
+                      data: [
+                        {
+                          id: 2,
+                          tanggal: new Date().toLocaleDateString('id-ID'),
+                          jenis: 'Pemasukan',
+                          kategori: 'Gaji',
+                          deskripsi: 'Gaji bulan ini',
+                          dompet_ke: 'Bank',
+                          nominal: 5000000,
+                          catatan: 'Gaji pokok'
+                        }
+                      ]
+                    });
+                    break;
+                  case 'getSummaryByFilter':
+                    resolve({
+                      status: 'success',
+                      data: {
+                        income: 5000000,
+                        expense: 1000000,
+                        balance: 4000000
+                      }
+                    });
+                    break;
+                  case 'getTransactionsByDateRange':
+                    console.log('Simulating getTransactionsByDateRange with data:', data);
+                    resolve({
+                      status: 'success',
+                      data: [
+                        {
+                          id: 2,
+                          tanggal: new Date().toLocaleDateString('id-ID'),
+                          jenis: 'Pemasukan',
+                          kategori: 'Gaji',
+                          deskripsi: 'Gaji bulan ini',
+                          dompet_ke: 'Bank',
+                          nominal: 5000000,
+                          catatan: 'Gaji pokok'
+                        }
+                      ],
+                      message: `Menampilkan transaksi dari ${data.startDateStr} sampai ${data.endDateStr}`
+                    });
+                    break;
+                  case 'getTransactionById':
+                    resolve({
+                      status: 'success',
+                      data: {
+                        id: data,
+                        date: '2025-01-01',
+                        type: 'Masuk',
+                        category: 'Gaji',
+                        description: 'Gaji bulan ini',
+                        fromWallet: '',
+                        toWallet: 'Bank',
+                        amount: 5000000,
+                        notes: 'Gaji pokok'
+                      }
+                    });
+                    break;
+                  case 'addTransaction':
+                    resolve({ status: 'success', message: 'Transaksi berhasil ditambahkan!' });
+                    break;
+                  case 'updateTransaction':
+                    resolve({ status: 'success', message: 'Transaksi berhasil diperbarui!' });
+                    break;
+                  case 'deleteTransaction':
+                    resolve({ status: 'success', message: 'Transaksi berhasil dihapus!' });
+                    break;
+                  case 'cleanTransactionSheet':
+                    resolve({ status: 'success', message: 'Sheet berhasil dibersihkan', mergedRangesFound: 0 });
+                    break;
+                  case 'validateSheetIntegrity':
+                    resolve({ status: 'success', message: 'Sheet integrity OK', issues: [] });
+                    break;
+                  case 'runComprehensiveTest':
+                    resolve({ status: 'success', message: 'All tests passed', details: {} });
+                    break;
+                  case 'getCategoriesByType':
+                    const transactionType = data;
+                    let categories = [];
+                    if (transactionType === 'Masuk') {
+                      categories = ["Gaji", "Bonus", "Freelance", "Investasi"];
+                    } else if (transactionType === 'Keluar') {
+                      categories = ["Makanan", "Transport", "Hiburan", "Belanja", "Tagihan"];
+                    }
+                    resolve({ 
+                      status: 'success', 
+                      message: `Berhasil mengambil ${categories.length} kategori untuk ${transactionType}`,
+                      data: categories 
+                    });
+                    break;
+                  default:
+                    reject(new Error('Function not found'));
+                }
+              }, 500); // Kurangi delay untuk testing
+            }
+          });
+        }
+      };
+
+      // --- DROPDOWN POPULATION ---
+      const populateDropdowns = (formType = 'add') => {
+        const prefix = formType === 'edit' ? 'edit-' : '';
+        const categorySelect = document.getElementById(`${prefix}category`);
+        const fromWalletSelect = document.getElementById(`${prefix}from-wallet`);
+        const toWalletSelect = document.getElementById(`${prefix}to-wallet`);
+        const typeSelect = document.getElementById(`${prefix}type`);
+        
+        fromWalletSelect.innerHTML = '';
+        toWalletSelect.innerHTML = '';
+
+        // Populate wallet dropdowns
+        appData.wallets.forEach(wallet => {
+          fromWalletSelect.innerHTML += `<option value="${wallet}">${wallet}</option>`;
+          toWalletSelect.innerHTML += `<option value="${wallet}">${wallet}</option>`;
+        });
+        
+        // Populate category dropdown based on current transaction type
+        const currentType = typeSelect.value;
+        populateCategoriesForType(currentType, categorySelect);
+      };
+      
+      // Function to populate categories based on transaction type
+      const populateCategoriesForType = (transactionType, categorySelect) => {
+        categorySelect.innerHTML = '';
+        
+        let categoriesToShow = [];
+        
+        if (transactionType === 'Masuk') {
+          categoriesToShow = appData.incomeCategories;
+        } else if (transactionType === 'Keluar') {
+          categoriesToShow = appData.expenseCategories;
+        }
+        // For Transfer, we don't show categories as they are auto-set
+        
+        categoriesToShow.forEach(cat => {
+          categorySelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+        });
+      };
+
+      // --- INITIAL DATA LOADING ---
+      const loadInitialData = async () => {
+        utils.showLoader();
+        try {
+          const response = await serverCall.call('getInitialData');
+          
+          if (response.error) {
+            utils.showMessage(response.error, 'error');
+            return;
+          }
+          
+          // Store app data
+          appData.categories = response.categories; // Kompatibilitas mundur
+          appData.incomeCategories = response.incomeCategories || [];
+          appData.expenseCategories = response.expenseCategories || [];
+          appData.wallets = response.wallets;
+          
+          // Populate summary
+          document.getElementById('summary-income').textContent = utils.formatCurrency(response.summary.income);
+          document.getElementById('summary-expense').textContent = utils.formatCurrency(response.summary.expense);
+          document.getElementById('summary-balance').textContent = utils.formatCurrency(response.summary.balance);
+          
+          // Populate wallet balances
+          const walletBalancesList = document.getElementById('wallet-balances-list');
+          walletBalancesList.innerHTML = '';
+          for (const wallet in response.walletBalances) {
+            const balance = response.walletBalances[wallet];
+            const walletHtml = `
+              <div class="flex justify-between items-center p-3 bg-slate-100 rounded-lg">
+                <p class="font-medium text-slate-600">${wallet}</p>
+                <p class="font-bold text-slate-800">${utils.formatCurrency(balance)}</p>
+              </div>
+            `;
+            walletBalancesList.innerHTML += walletHtml;
+          }
+
+          // Populate dropdowns
+          populateDropdowns('add');
+          populateDropdowns('edit');
+        } catch (error) {
+          utils.showMessage('Error: ' + error.message, 'error');
+        } finally {
+          utils.hideLoader();
+        }
+      };
+
+      // --- FORM LOGIC ---
+      const today = new Date().toLocaleDateString('en-CA');
+      dateInput.value = today;
+
+      // Format number inputs
+      const formatAmountInput = (input) => {
+        input.addEventListener('keyup', function(e) {
+          let value = parseInt(this.value.replace(/[^0-9]/g, ''), 10);
+          this.value = isNaN(value) ? "" : new Intl.NumberFormat('id-ID').format(value);
+        });
+      };
+      
+      formatAmountInput(amountInput);
+      formatAmountInput(editAmountInput);
+
+      // Transaction type change handlers
+      const handleTypeChange = (typeSelect, formType) => {
+        typeSelect.addEventListener('change', (e) => {
+          const type = e.target.value;
+          const prefix = formType === 'edit' ? 'edit-' : '';
+          const categoryContainer = document.getElementById(`${prefix}category-container`);
+          const categorySelect = document.getElementById(`${prefix}category`);
+          const walletToContainer = document.getElementById(`${prefix}wallet-to-container`);
+          const walletFromContainer = document.getElementById(`${prefix}wallet-from-container`);
+          
+          // Show/hide form sections based on transaction type
+          categoryContainer.classList.toggle('hidden', type === 'Transfer');
+          walletToContainer.classList.toggle('hidden', type === 'Keluar');
+          walletFromContainer.classList.toggle('hidden', type === 'Masuk');
+          
+          // Update category dropdown with appropriate categories
+          if (type !== 'Transfer') {
+            populateCategoriesForType(type, categorySelect);
+          }
+        });
+        typeSelect.dispatchEvent(new Event('change'));
+      };
+
+      handleTypeChange(typeSelect, 'add');
+      handleTypeChange(editTypeSelect, 'edit');
+
+      // --- TRANSACTION SUMMARY FUNCTIONS ---
+      const updateTransactionSummary = async (filterType = 'today') => {
+        try {
+          const response = await serverCall.call('getSummaryByFilter', filterType);
+          
+          if (response.status === 'success') {
+            const { income, expense, balance } = response.data;
+            
+            document.getElementById('transaction-summary-income').textContent = utils.formatCurrency(income);
+            document.getElementById('transaction-summary-expense').textContent = utils.formatCurrency(expense);
+            document.getElementById('transaction-summary-balance').textContent = utils.formatCurrency(balance);
+            
+            // Update balance color based on positive/negative
+            const balanceElement = document.getElementById('transaction-summary-balance');
+            if (balance >= 0) {
+              balanceElement.className = 'text-lg font-bold text-blue-700';
+            } else {
+              balanceElement.className = 'text-lg font-bold text-red-700';
+            }
+          }
+        } catch (error) {
+          console.error('Error updating transaction summary:', error);
+        }
+      };
+      
+      const updateTransactionSummaryByDateRange = async (startDate, endDate) => {
+        try {
+          const response = await serverCall.call('getTransactionsByDateRange', { startDateStr: startDate, endDateStr: endDate });
+          
+          if (response.status === 'success') {
+            let totalIncome = 0;
+            let totalExpense = 0;
+            
+            response.data.forEach(transaction => {
+              const amount = Math.abs(parseFloat(transaction.nominal) || 0);
+              
+              if (transaction.jenis === 'Pemasukan' || transaction.jenis === 'Masuk') {
+                totalIncome += amount;
+              } else if (transaction.jenis === 'Pengeluaran' || transaction.jenis === 'Keluar') {
+                totalExpense += amount;
+              }
+            });
+            
+            const balance = totalIncome - totalExpense;
+            
+            document.getElementById('transaction-summary-income').textContent = utils.formatCurrency(totalIncome);
+            document.getElementById('transaction-summary-expense').textContent = utils.formatCurrency(totalExpense);
+            document.getElementById('transaction-summary-balance').textContent = utils.formatCurrency(balance);
+            
+            // Update balance color based on positive/negative
+            const balanceElement = document.getElementById('transaction-summary-balance');
+            if (balance >= 0) {
+              balanceElement.className = 'text-lg font-bold text-blue-700';
+            } else {
+              balanceElement.className = 'text-lg font-bold text-red-700';
+            }
+          }
+        } catch (error) {
+          console.error('Error updating transaction summary by date range:', error);
+        }
+      };
+      
+      // --- TRANSACTION FILTER FUNCTIONS ---
+      const loadTransactionsByFilter = async (filterType) => {
+        console.log('Loading transactions by filter:', filterType);
+        utils.showLoader();
+        transactionsList.innerHTML = '<p class="text-center text-slate-500 mt-4">Memuat transaksi...</p>';
+        
+        try {
+          const response = await serverCall.call('getTransactionsByFilter', filterType);
+          
+          if (response.status === 'success') {
+            if (response.data && response.data.length > 0) {
+              renderTransactions(response.data);
+              updateTransactionSummary(filterType);
+              utils.showMessage(`Menampilkan ${response.data.length} transaksi`, 'success');
+            } else {
+              transactionsList.innerHTML = `<p class="text-center text-slate-500 mt-8">Tidak ada transaksi untuk periode ${getFilterLabel(filterType)}.</p>`;
+              updateTransactionSummary(filterType);
+              utils.showMessage(`Tidak ada transaksi untuk periode ${getFilterLabel(filterType)}`, 'info');
+            }
+          } else {
+            utils.showMessage(response.message || 'Gagal memuat transaksi', 'error');
+            transactionsList.innerHTML = '<p class="text-center text-red-500 mt-8">Gagal memuat transaksi</p>';
+          }
+        } catch (error) {
+          console.error('Error loading transactions by filter:', error);
+          utils.showMessage('Terjadi kesalahan saat memuat transaksi', 'error');
+          transactionsList.innerHTML = '<p class="text-center text-red-500 mt-8">Gagal memuat data transaksi</p>';
+        } finally {
+          utils.hideLoader();
+        }
+      };
+      
+      const loadTransactionsByDateRange = async (startDate, endDate) => {
+        utils.showLoader();
+        transactionsList.innerHTML = '<p class="text-center text-slate-500 mt-4">Memuat transaksi...</p>';
+        
+        try {
+          const response = await serverCall.call('getTransactionsByDateRange', { startDateStr: startDate, endDateStr: endDate });
+          
+          if (response.status === 'success') {
+            if (response.data && response.data.length > 0) {
+              renderTransactions(response.data);
+              updateTransactionSummaryByDateRange(startDate, endDate);
+              utils.showMessage(`Menampilkan ${response.data.length} transaksi`, 'success');
+            } else {
+              transactionsList.innerHTML = '<p class="text-center text-slate-500 mt-8">Tidak ada transaksi untuk rentang tanggal tersebut.</p>';
+              updateTransactionSummaryByDateRange(startDate, endDate);
+              utils.showMessage('Tidak ada transaksi untuk rentang tanggal tersebut', 'info');
+            }
+          } else {
+            utils.showMessage(response.message || 'Gagal memuat transaksi', 'error');
+            transactionsList.innerHTML = '<p class="text-center text-red-500 mt-8">Gagal memuat transaksi</p>';
+          }
+        } catch (error) {
+          console.error('Error loading transactions by date range:', error);
+          utils.showMessage('Terjadi kesalahan saat memuat transaksi', 'error');
+          transactionsList.innerHTML = '<p class="text-center text-red-500 mt-8">Gagal memuat data transaksi</p>';
+        } finally {
+          utils.hideLoader();
+        }
+      };
+      
+      const getFilterLabel = (filterType) => {
+        const labels = {
+          'today': 'hari ini',
+          'yesterday': 'kemarin',
+          'thisWeek': 'minggu ini',
+          'thisMonth': 'bulan ini'
+        };
+        return labels[filterType] || 'periode dipilih';
+      };
+      
+      const updateFilterTitle = (filterType, customRange = null) => {
+        if (customRange) {
+          transactionsTitle.textContent = `Transaksi ${customRange.start} s/d ${customRange.end}`;
+        } else {
+          const labels = {
+            'today': 'Hari Ini',
+            'yesterday': 'Kemarin',
+            'thisWeek': 'Minggu Ini',
+            'thisMonth': 'Bulan Ini'
+          };
+          transactionsTitle.textContent = `Transaksi ${labels[filterType] || 'Periode Dipilih'}`;
+        }
+      };
+
+      // --- TRANSACTION FORM SUBMISSION ---
+      transactionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submit-btn');
+        setButtonLoading(submitBtn);
+
+        const transactionData = extractFormData(transactionForm, {
+          'date': 'date',
+          'type': 'type',
+          'category': 'category',
+          'description': 'description',
+          'from-wallet': 'fromWallet',
+          'to-wallet': 'toWallet',
+          'amount': 'amount',
+          'notes': 'notes'
+        });
+        
+        // Clean amount field
+        transactionData.amount = transactionData.amount.replace(/\./g, '');
+        
+        // Validate transaction data
+        const validationError = validateTransactionForm(transactionData);
+        if (validationError) {
+          utils.showMessage(validationError, 'error');
+          resetSubmitButton(submitBtn, 'Simpan Transaksi');
+          return;
+        }
+
+        try {
+          const response = await serverCall.call('addTransaction', transactionData);
+          utils.showMessage(response.message, response.status === 'success' ? 'success' : 'error');
+          
+          if (response.status === 'success') {
+            // Reset form for next transaction
+            transactionForm.reset();
+            dateInput.value = today;
+            typeSelect.dispatchEvent(new Event('change'));
+            
+            // Update data in background
+            await loadInitialData();
+            
+            // Simple success feedback - stay on page for next entry
+            utils.showMessage(response.message + ' - Siap untuk transaksi berikutnya!', 'success');
+            
+            // Focus back to first input for quick next entry
+            setTimeout(() => {
+              const firstInput = transactionForm.querySelector('input:not([type="hidden"])');
+              if (firstInput) firstInput.focus();
+            }, 500);
+          }
+        } catch (error) {
+          utils.showMessage('Error: ' + error.message, 'error');
+        } finally {
+          resetSubmitButton(submitBtn, 'Simpan Transaksi');
+        }
+      });
+
+      // --- EDIT FORM SUBMISSION ---
+      editForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('edit-submit-btn');
+        setButtonLoading(submitBtn);
+
+        const transactionData = extractFormData(editForm, {
+          'edit-id': 'id',
+          'edit-date': 'date',
+          'edit-type': 'type',
+          'edit-category': 'category',
+          'edit-description': 'description',
+          'edit-from-wallet': 'fromWallet',
+          'edit-to-wallet': 'toWallet',
+          'edit-amount': 'amount',
+          'edit-notes': 'notes'
+        });
+        
+        // Convert ID and clean amount
+        transactionData.id = parseInt(transactionData.id);
+        transactionData.amount = transactionData.amount.replace(/\./g, '');
+
+        try {
+          const response = await serverCall.call('updateTransaction', transactionData);
+          utils.showMessage(response.message, response.status === 'success' ? 'success' : 'error');
+          
+          if (response.status === 'success') {
+            await loadInitialData();
+            navigateTo('transactions-page');
+          }
+        } catch (error) {
+          utils.showMessage('Error: ' + error.message, 'error');
+        } finally {
+          resetSubmitButton(submitBtn, 'Perbarui Transaksi');
+        }
+      });
+
+      // --- RENDER TRANSACTIONS ---
+      function renderTransactions(transactions) {
+        if (!transactions || transactions.length === 0) {
+          transactionsList.innerHTML = '<p class="text-center text-slate-500 mt-8">Tidak ada transaksi yang ditemukan.</p>';
+          return;
+        }
+        
+        let html = '<div class="space-y-3">';
+        
+        transactions.forEach((transaction) => {
+          const date = transaction.tanggal;
+          const amount = parseFloat(transaction.nominal || transaction.jumlah || 0);
+          const formattedAmount = utils.formatCurrency(Math.abs(amount));
+          
+          let typeClass = 'bg-gray-50 border-gray-200';
+          let typeIcon = '💰';
+          let typeText = transaction.jenis || 'Unknown';
+          
+          if (transaction.jenis === 'Pemasukan' || transaction.jenis === 'Masuk') {
+            typeClass = 'bg-green-50 border-green-200';
+            typeIcon = '📈';
+            typeText = 'Pemasukan';
+          } else if (transaction.jenis === 'Pengeluaran' || transaction.jenis === 'Keluar') {
+            typeClass = 'bg-red-50 border-red-200';
+            typeIcon = '📉';
+            typeText = 'Pengeluaran';
+          } else if (transaction.jenis === 'Transfer') {
+            typeClass = 'bg-blue-50 border-blue-200';
+            typeIcon = '🔄';
+          }
+          
+          html += `
+            <div class="${typeClass} border rounded-lg p-3 overflow-hidden">
+              <!-- Header dengan icon, type, dan nominal -->
+              <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <span class="text-lg flex-shrink-0">${typeIcon}</span>
+                  <span class="font-semibold text-gray-800 text-sm truncate">${typeText}</span>
+                  <span class="text-xs text-gray-500 flex-shrink-0">${date}</span>
+                </div>
+                <div class="flex-shrink-0 ml-2">
+                  <div class="font-bold text-sm ${transaction.jenis === 'Pemasukan' || transaction.jenis === 'Masuk' ? 'text-green-600' : transaction.jenis === 'Pengeluaran' || transaction.jenis === 'Keluar' ? 'text-red-600' : 'text-blue-600'}">
+                    ${transaction.jenis === 'Pemasukan' || transaction.jenis === 'Masuk' ? '+' : transaction.jenis === 'Pengeluaran' || transaction.jenis === 'Keluar' ? '-' : ''}${formattedAmount}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Detail transaksi -->
+              <div class="space-y-1 mb-3">
+                <div class="text-xs text-gray-600">
+                  <span class="font-medium">Kategori:</span> <span class="text-gray-700">${transaction.kategori || 'Tidak ada'}</span>
+                </div>
+                <div class="text-xs text-gray-600">
+                  <span class="font-medium">Deskripsi:</span> <span class="text-gray-700">${transaction.deskripsi || 'Tidak ada'}</span>
+                </div>
+                ${transaction.jenis === 'Transfer' ? 
+                  `<div class="text-xs text-gray-600">
+                    <span class="font-medium">Transfer:</span> <span class="text-gray-700">${transaction.dompetDari || transaction.dompet_dari || 'Tidak ada'} → ${transaction.dompetKe || transaction.dompet_ke || 'Tidak ada'}</span>
+                  </div>` : 
+                  `<div class="text-xs text-gray-600">
+                    <span class="font-medium">Dompet:</span> <span class="text-gray-700">${transaction.dompetDari || transaction.dompetKe || transaction.dompet_dari || transaction.dompet_ke || 'Tidak ada'}</span>
+                  </div>`
+                }
+                ${transaction.catatan ? 
+                  `<div class="text-xs text-gray-500 italic">
+                    <span class="font-medium">Catatan:</span> ${transaction.catatan}
+                  </div>` : ''
+                }
+              </div>
+              
+              <!-- Action buttons -->
+              <div class="flex gap-2 pt-2 border-t border-gray-200">
+                <button onclick="editTransaction(${transaction.id})" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium py-2 px-3 rounded-lg transition duration-200">
+                  Edit
+                </button>
+                <button onclick="deleteTransaction(${transaction.id})" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium py-2 px-3 rounded-lg transition duration-200">
+                  Hapus
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+        transactionsList.innerHTML = html;
+      }
+      
+      // --- GLOBAL FUNCTIONS FOR EDIT AND DELETE ---
+      window.editTransaction = async (transactionId) => {
+        utils.showLoader();
+        try {
+          const response = await serverCall.call('getTransactionById', transactionId);
+          
+          if (response.status === 'success') {
+            const transaction = response.data;
+            
+            // Populate edit form
+            document.getElementById('edit-id').value = transaction.id;
+            document.getElementById('edit-date').value = transaction.date;
+            document.getElementById('edit-type').value = transaction.type;
+            document.getElementById('edit-category').value = transaction.category;
+            document.getElementById('edit-description').value = transaction.description;
+            document.getElementById('edit-from-wallet').value = transaction.fromWallet;
+            document.getElementById('edit-to-wallet').value = transaction.toWallet;
+            document.getElementById('edit-amount').value = new Intl.NumberFormat('id-ID').format(transaction.amount);
+            document.getElementById('edit-notes').value = transaction.notes;
+            
+            // Trigger type change to show/hide appropriate fields
+            editTypeSelect.dispatchEvent(new Event('change'));
+            
+            // Navigate to edit page
+            navigateTo('edit-page');
+          } else {
+            utils.showMessage(response.message || 'Gagal memuat data transaksi', 'error');
+          }
+        } catch (error) {
+          utils.showMessage('Error: ' + error.message, 'error');
+        } finally {
+          utils.hideLoader();
+        }
+      };
+      
+      window.deleteTransaction = (transactionId) => {
+        utils.showDeleteModal(transactionId);
+      };
+      
+      // --- EVENT HANDLERS ---
+      const eventHandlers = {
+        async reloadCurrentTransactions() {
+          if (customDateRange) {
+            await loadTransactionsByDateRange(customDateRange.start, customDateRange.end);
+          } else {
+            await loadTransactionsByFilter(currentFilter);
+          }
+        },
+        
+        async confirmDelete() {
+          if (!currentDeleteId) return;
+          
+          utils.showLoader();
+          try {
+            const response = await serverCall.call('deleteTransaction', currentDeleteId);
+            utils.showMessage(response.message, response.status === 'success' ? 'success' : 'error');
+            
+            if (response.status === 'success') {
+              await loadInitialData();
+              await eventHandlers.reloadCurrentTransactions();
+            }
+          } catch (error) {
+            utils.showMessage('Error: ' + error.message, 'error');
+          } finally {
+            utils.hideLoader();
+            utils.hideDeleteModal();
+          }
+        }
+      };
+      
+      // --- FILTER EVENT HANDLERS ---
+      const handleFilterChange = (filterType) => {
+        currentFilter = filterType;
+        customDateRange = null;
+        
+        // Update filter button states
+        filterBtns.forEach(btn => {
+          if (btn.dataset.filter === filterType) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+        
+        // Clear custom date inputs
+        startDateInput.value = '';
+        endDateInput.value = '';
+        
+        // Load transactions
+        loadTransactionsByFilter(filterType);
+        updateFilterTitle(filterType);
+      };
+      
+      const handleDateRangeFilter = () => {
+        const startDate = startDateInput.value;
+        const endDate = endDateInput.value;
+        
+        if (!startDate || !endDate) {
+          utils.showMessage('Silakan pilih tanggal mulai dan akhir', 'error');
+          return;
+        }
+        
+        if (new Date(startDate) > new Date(endDate)) {
+          utils.showMessage('Tanggal mulai tidak boleh lebih besar dari tanggal akhir', 'error');
+          return;
+        }
+        
+        customDateRange = { start: startDate, end: endDate };
+        currentFilter = null;
+        
+        // Remove active state from all filter buttons
+        filterBtns.forEach(btn => btn.classList.remove('active'));
+        
+        // Load transactions
+        loadTransactionsByDateRange(startDate, endDate);
+        updateFilterTitle(null, {
+          start: new Date(startDate).toLocaleDateString('id-ID'),
+          end: new Date(endDate).toLocaleDateString('id-ID')
+        });
+      };
+      
+      // --- DEBUG FUNCTIONS ---
+      const runDebugTests = async () => {
+        utils.showMessage('Menjalankan debug tests...', 'info');
+        utils.showLoader();
+        
+        try {
+          const results = await Promise.all([
+            serverCall.call('cleanTransactionSheet'),
+            serverCall.call('validateSheetIntegrity'),
+            serverCall.call('runComprehensiveTest')
+          ]);
+          
+          const [cleanResult, integrityResult, comprehensiveResult] = results;
+          
+          let message = 'Debug Tests Completed:\n';
+          message += `- Clean Sheet: ${cleanResult.status}\n`;
+          message += `- Integrity Check: ${integrityResult.status}\n`;
+          message += `- Comprehensive Test: ${comprehensiveResult.status}\n`;
+          
+          if (integrityResult.issues?.length > 0) {
+            message += `\nIssues found: ${integrityResult.issues.length}`;
+          }
+          
+          alert(message);
+          utils.showMessage('Debug tests selesai!', 'success');
+          
+        } catch (error) {
+          utils.showMessage('Error dalam debug test: ' + error.message, 'error');
+        } finally {
+          utils.hideLoader();
+        }
+      };
+
+      // --- EVENT LISTENERS ---
+      // Filter button listeners
+      filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const filterType = btn.dataset.filter;
+          handleFilterChange(filterType);
+        });
+      });
+      
+      // Date range filter listener
+      applyDateRangeBtn.addEventListener('click', handleDateRangeFilter);
+      
+      // Reload transactions listener
+      reloadTransactionsBtn.addEventListener('click', eventHandlers.reloadCurrentTransactions);
+      
+      // Debug button listener
+      debugBtn.addEventListener('click', runDebugTests);
+      
+      // Other event listeners
+      confirmDeleteBtn.addEventListener('click', eventHandlers.confirmDelete);
+      cancelDeleteBtn.addEventListener('click', utils.hideDeleteModal);
+      cancelEditBtn.addEventListener('click', () => navigateTo('transactions-page'));
+      
+      // Allow Enter key for date range filter
+      const handleDateRangeEnter = (e) => {
+        if (e.key === 'Enter') {
+          handleDateRangeFilter();
+        }
+      };
+      
+      startDateInput.addEventListener('keypress', handleDateRangeEnter);
+      endDateInput.addEventListener('keypress', handleDateRangeEnter);
+
+      // Close modal when clicking outside
+      deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) {
+          utils.hideDeleteModal();
+        }
+      });
+
+      // --- APP INITIALIZATION ---
+      const initializeApp = async () => {
+        await loadInitialData();
+        
+        // Initialize transaction summary untuk hari ini
+        await updateTransactionSummary('today');
+      };
+      
+      initializeApp();
+    };
+  </script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    // Register service worker for PWA functionality
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?path=sw.js')
+          .then((registration) => {
+            console.log('Service Worker registered successfully:', registration.scope);
+          })
+          .catch((error) => {
+            console.log('Service Worker registration failed:', error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
+ 
