@@ -79,8 +79,9 @@ function addTransaction(payload) {
   const sheet = _getSheet();
   sheet.appendRow(row);
   
-  // CRITICAL: Clear ALL cache (summary + transaction lists)
-  CacheService.getScriptCache().removeAll();
+  // Clear summary cache (transaction cache will auto-expire in 2 min)
+  const cache = CacheService.getScriptCache();
+  cache.remove(CFG.SUMMARY_CACHE_KEY);
   
   return { id };
 }
@@ -113,8 +114,9 @@ function addTransactions(list) {
   }
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   
-  // CRITICAL: Clear ALL cache (summary + transaction lists)
-  CacheService.getScriptCache().removeAll();
+  // Clear summary cache (transaction cache will auto-expire in 2 min)
+  const cache = CacheService.getScriptCache();
+  cache.remove(CFG.SUMMARY_CACHE_KEY);
   
   return { count: rows.length };
 }
@@ -142,8 +144,9 @@ function editTransaction(id, updates) {
       }
       sheet.getRange(r + 1, 1, 1, row.length).setValues([row]);
       
-      // CRITICAL: Clear ALL cache (summary + transaction lists)
-      CacheService.getScriptCache().removeAll();
+      // Clear summary cache (transaction cache will auto-expire in 2 min)
+      const cache = CacheService.getScriptCache();
+      cache.remove(CFG.SUMMARY_CACHE_KEY);
       
       return { id };
     }
@@ -158,8 +161,9 @@ function deleteTransaction(id) {
     if (data[r][0] === id) {
       sheet.deleteRow(r + 1);
       
-      // CRITICAL: Clear ALL cache (summary + transaction lists)
-      CacheService.getScriptCache().removeAll();
+      // Clear summary cache (transaction cache will auto-expire in 2 min)
+      const cache = CacheService.getScriptCache();
+      cache.remove(CFG.SUMMARY_CACHE_KEY);
       
       return { id };
     }
