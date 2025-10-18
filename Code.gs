@@ -7,10 +7,10 @@
 */
 
 const CFG = {
-  PROP_SPREADSHEET_ID: 'SIMPelCATAT_SPREADSHEET_ID',
+  PROP_SPREADSHEET_ID: 'SPREADSHEET_ID',
   DEFAULT_SHEET_NAME: 'Transaksi',
   PAGE_SIZE: 50,
-  SUMMARY_CACHE_KEY: 'SIMPelCATAT_SUMMARY',
+  SUMMARY_CACHE_KEY: 'SUMMARY',
   SUMMARY_CACHE_TTL: 60, // seconds
   TZ: 'Asia/Makassar'
 };
@@ -43,9 +43,9 @@ function setup() {
 
 // MANUAL SETUP INSTRUCTIONS:
 // Untuk mengatur Spreadsheet ID, buka File > Project Properties > Script Properties
-// Tambahkan property: SIMPelCATAT_SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
+// Tambahkan property: SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
 // Atau gunakan kode berikut di Apps Script editor:
-// PropertiesService.getScriptProperties().setProperty('SIMPelCATAT_SPREADSHEET_ID', 'YOUR_SPREADSHEET_ID_HERE');
+// PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', 'YOUR_SPREADSHEET_ID_HERE');
 
 function getConfig() {
   const ssId = PropertiesService.getScriptProperties().getProperty(CFG.PROP_SPREADSHEET_ID);

@@ -54,7 +54,7 @@ Aplikasi pencatatan keuangan sederhana berbasis Google Apps Script dengan interf
 2. Copy ID sheet dari URL
 3. Buka Apps Script Editor (Extensions > Apps Script)
 4. Set Script Property:
-   - Key: SIMPelCATAT_SPREADSHEET_ID
+   - Key: SPREADSHEET_ID
    - Value: [YOUR_SHEET_ID]
 ```
 
@@ -189,7 +189,7 @@ Menyimpan batch transaksi sekaligus.
 **Solusi:** Pastikan data di sheet menggunakan format Date yang benar atau string "yyyy-MM-dd"
 
 ### Error: "Spreadsheet ID belum diset"
-**Solusi:** Set Script Property `SIMPelCATAT_SPREADSHEET_ID` di Apps Script
+**Solusi:** Set Script Property `SPREADSHEET_ID` di Apps Script
 
 ### Cache tidak clear setelah update
 **Solusi:** Tunggu 2 menit atau refresh dengan Ctrl+Shift+R
