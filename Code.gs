@@ -78,7 +78,10 @@ function addTransaction(payload) {
   ];
   const sheet = _getSheet();
   sheet.appendRow(row);
-  CacheService.getScriptCache().remove(CFG.SUMMARY_CACHE_KEY);
+  
+  // CRITICAL: Clear ALL cache (summary + transaction lists)
+  CacheService.getScriptCache().removeAll();
+  
   return { id };
 }
 
@@ -109,7 +112,10 @@ function addTransactions(list) {
     rows.push(row);
   }
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-  CacheService.getScriptCache().remove(CFG.SUMMARY_CACHE_KEY);
+  
+  // CRITICAL: Clear ALL cache (summary + transaction lists)
+  CacheService.getScriptCache().removeAll();
+  
   return { count: rows.length };
 }
 
@@ -135,7 +141,10 @@ function editTransaction(id, updates) {
         row[5] = String(updates.keterangan).trim();
       }
       sheet.getRange(r + 1, 1, 1, row.length).setValues([row]);
-      CacheService.getScriptCache().remove(CFG.SUMMARY_CACHE_KEY);
+      
+      // CRITICAL: Clear ALL cache (summary + transaction lists)
+      CacheService.getScriptCache().removeAll();
+      
       return { id };
     }
   }
@@ -148,7 +157,10 @@ function deleteTransaction(id) {
   for (let r = 1; r < data.length; r++) {
     if (data[r][0] === id) {
       sheet.deleteRow(r + 1);
-      CacheService.getScriptCache().remove(CFG.SUMMARY_CACHE_KEY);
+      
+      // CRITICAL: Clear ALL cache (summary + transaction lists)
+      CacheService.getScriptCache().removeAll();
+      
       return { id };
     }
   }
